@@ -40,7 +40,7 @@ let appSettings = {
 
 const menuItems = [
     { id: 1, name: "Donat Jadoel", price: 3500, category: "makanan", img: "pict/img/Donat.png" },
-    { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/Bomboloni.png" },
+    { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/bomboloni.png" },
     { id: 3, name: "Soda Gembira", price: 12000, category: "minuman", img: "pict/img/sodagembira.jpg" },
     { id: 4, name: "Mango Sticky Rice", price: 15000, category: "makanan", img: "pict/img/mangostr.jpg" },
     { id: 5, name: "Kue Sus", price: 3500, category: "makanan", img: "pict/img/kuesus.png" },
@@ -830,15 +830,161 @@ const initEventListeners = () => {
     });
 
     on("btnExportExcel", "click", () => {
-        if (transactions.length === 0) { alert("Belum ada data transaksi!"); return; }
-        let rows = transactions.map(t => `<tr><td>${t.id}</td><td>${t.time} (${t.date})</td><td>${t.customer}</td><td>${t.type}</td><td>${t.method}</td><td>${formatRupiah(t.total)}</td></tr>`).join("");
-        let html = `<table><thead><tr><th>ID</th><th>Waktu</th><th>Pelanggan</th><th>Tipe</th><th>Metode</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>`;
-        const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+        if (transactions.length === 0) {
+            alert("Belum ada data transaksi untuk di-export!");
+            return;
+        }
+
+        const formatRpClean = (num) => "Rp " + (Number(num) || 0).toLocaleString("id-ID");
+
+        let totalOmsetKeseluruhan = 0;
+        let totalItemTerjual = 0;
+
+        const rowsHTML = transactions.map((t, index) => {
+            const itemsList = Array.isArray(t.items) ? t.items : [];
+            const detailPesanan = itemsList.length > 0
+                ? itemsList.map(i => `• ${i.name} (${i.qty}x @ ${formatRpClean(i.price)})`).join("<br>")
+                : "-";
+            const qtyTotalTrx = itemsList.reduce((sum, i) => sum + (Number(i.qty) || 1), 0);
+
+            totalOmsetKeseluruhan += Number(t.total) || 0;
+            totalItemTerjual += qtyTotalTrx;
+
+            const rowBg = index % 2 === 1 ? "#FFFDF7" : "#FFFFFF";
+
+            return `
+                <tr style="background-color: ${rowBg};">
+                    <td style="text-align: center;">${index + 1}</td>
+                    <td style="text-align: center; font-weight: bold;">${t.id}</td>
+                    <td style="text-align: center;">${t.date} ${t.time}</td>
+                    <td>${t.customer}</td>
+                    <td style="text-align: center;">${t.type}</td>
+                    <td style="line-height: 1.5;">${detailPesanan}</td>
+                    <td style="text-align: center; font-weight: bold;">${qtyTotalTrx} pcs</td>
+                    <td style="text-align: center;">${t.method}</td>
+                    <td style="text-align: right;">${formatRpClean(t.subtotal ?? t.total)}</td>
+                    <td style="text-align: right;">${formatRpClean(t.tax ?? 0)}</td>
+                    <td style="text-align: right; font-weight: bold; color: #3E2421;">${formatRpClean(t.total)}</td>
+                    <td style="text-align: right;">${formatRpClean(t.paid ?? t.total)}</td>
+                    <td style="text-align: right;">${formatRpClean(t.change ?? 0)}</td>
+                </tr>
+            `;
+        }).join("");
+
+        const printDate = new Date().toLocaleString("id-ID", {
+            dateStyle: "full",
+            timeStyle: "short"
+        });
+
+        const excelTemplate = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office"
+                  xmlns:x="urn:schemas-microsoft-com:office:excel"
+                  xmlns="http://www.w3.org/TR/REC-html40">
+            <head>
+                <meta charset="UTF-8">
+                <!--[if gte mso 9]>
+                <xml>
+                    <x:ExcelWorkbook>
+                        <x:ExcelWorksheets>
+                            <x:ExcelWorksheet>
+                                <x:Name>Laporan Penjualan</x:Name>
+                                <x:WorksheetOptions>
+                                    <x:DisplayGridlines/>
+                                </x:WorksheetOptions>
+                            </x:ExcelWorksheet>
+                        </x:ExcelWorksheets>
+                    </x:ExcelWorkbook>
+                </xml>
+                <![endif]-->
+                <style>
+                    body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
+                    table { border-collapse: collapse; width: 100%; }
+                    .title-box { font-size: 15pt; font-weight: bold; color: #3E2421; padding: 6px 0; }
+                    .sub-box { font-size: 10pt; color: #555555; padding-bottom: 10px; }
+                    th {
+                        background-color: #FFD54F;
+                        color: #2B1A17;
+                        font-weight: bold;
+                        border: 1px solid #8C6D1F;
+                        padding: 12px 14px;
+                        text-align: center;
+                        vertical-align: middle;
+                        font-size: 11pt;
+                    }
+                    td {
+                        border: 1px solid #CFC6BC;
+                        padding: 10px 14px;
+                        vertical-align: top;
+                        mso-number-format: "\\@";
+                    }
+                    .total-footer td {
+                        background-color: #FFF3CD;
+                        font-weight: bold;
+                        border: 1px solid #8C6D1F;
+                        padding: 11px 14px;
+                        font-size: 11pt;
+                    }
+                </style>
+            </head>
+            <body>
+                <table>
+                    <tr>
+                        <td colspan="13" style="border: none; padding: 4px 0;" class="title-box">
+                            LAPORAN PENJUALAN - ${appSettings.storeName.toUpperCase()}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="13" style="border: none; padding: 0 0 12px 0;" class="sub-box">
+                            ${appSettings.address} | Telp: ${appSettings.phone} &bull; Dicetak pada: ${printDate} WIB
+                        </td>
+                    </tr>
+                    <thead>
+                        <tr>
+                            <th style="width: 45px;">No</th>
+                            <th style="width: 100px;">ID Transaksi</th>
+                            <th style="width: 145px;">Tanggal &amp; Waktu</th>
+                            <th style="width: 165px;">Nama Pelanggan</th>
+                            <th style="width: 125px;">Tipe Pelanggan</th>
+                            <th style="width: 310px;">Detail Pesanan (Menu &amp; Jumlah)</th>
+                            <th style="width: 95px;">Total Qty</th>
+                            <th style="width: 95px;">Metode</th>
+                            <th style="width: 120px;">Subtotal</th>
+                            <th style="width: 100px;">Pajak</th>
+                            <th style="width: 130px;">Total Bayar</th>
+                            <th style="width: 130px;">Uang Diterima</th>
+                            <th style="width: 120px;">Kembalian</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rowsHTML}
+                    </tbody>
+                    <tfoot>
+                        <tr class="total-footer">
+                            <td colspan="6" style="text-align: right;">GRAND TOTAL (${transactions.length} Transaksi)</td>
+                            <td style="text-align: center;">${totalItemTerjual} pcs</td>
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td style="text-align: right;">${formatRpClean(totalOmsetKeseluruhan)}</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </body>
+            </html>
+        `;
+
+        const blob = new Blob(["\uFEFF" + excelTemplate], {
+            type: "application/vnd.ms-excel;charset=utf-8;"
+        });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         a.download = `Laporan_SweetMemories_${new Date().toISOString().slice(0, 10)}.xls`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     });
 };
 
