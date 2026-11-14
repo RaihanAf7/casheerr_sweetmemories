@@ -2,14 +2,27 @@
 // KONFIGURASI FIREBASE REALTIME DATABASE
 // ==========================================================================
 const firebaseConfig = {
-    databaseURL: "https://sweet-memories-kasir-default-rtdb.asia-southeast1.firebasedatabase.app"
+    apiKey: "AIzaSyBS1lv6GildLilRzjXxaIyAZCO9XO2Dd-g",
+    authDomain: "sweet-memories-kasir.firebaseapp.com",
+    databaseURL: "https://sweet-memories-kasir-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "sweet-memories-kasir",
+    storageBucket: "sweet-memories-kasir.firebasestorage.app",
+    messagingSenderId: "50808003358",
+    appId: "1:50808003358:web:9eaccbcb444bf3c638470f",
+    measurementId: "G-7CSJPB1RCD"
 };
 
 let db = null;
+let auth = null;
+let isAdmin = false;
+
 try {
     if (typeof firebase !== "undefined") {
         firebase.initializeApp(firebaseConfig);
         db = firebase.database();
+        if (firebase.auth) {
+            auth = firebase.auth();
+        }
     }
 } catch (err) {
     console.warn("Firebase offline/skip:", err);
@@ -40,7 +53,7 @@ let appSettings = {
 
 const menuItems = [
     { id: 1, name: "Donat Jadoel", price: 3500, category: "makanan", img: "pict/img/Donat.png" },
-    { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/Bomboloni.png" },
+    { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/bomboloni.png" },
     { id: 3, name: "Soda Gembira", price: 12000, category: "minuman", img: "pict/img/sodagembira.jpg" },
     { id: 4, name: "Mango Sticky Rice", price: 15000, category: "makanan", img: "pict/img/mangostr.jpg" },
     { id: 5, name: "Kue Sus", price: 3500, category: "makanan", img: "pict/img/kuesus.png" },
@@ -74,14 +87,53 @@ const beadVariants = {
 const formatRupiah = (number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(number || 0);
 
 // ==========================================================================
+// KONTROL AKSES ADMIN (READ-ONLY UNTUK PENGUNJUNG)
+// ==========================================================================
+const updateAdminUI = () => {
+    const btnAuth = document.getElementById("btnAdminAuth");
+    if (btnAuth) {
+        if (isAdmin) {
+            btnAuth.innerHTML = `<i class="fa-solid fa-lock-open"></i> Admin Aktif (Logout)`;
+            btnAuth.style.background = "var(--success-color)";
+            btnAuth.style.color = "#fff";
+        } else {
+            btnAuth.innerHTML = `<i class="fa-solid fa-lock"></i> Mode Tamu (Login)`;
+            btnAuth.style.background = "";
+            btnAuth.style.color = "";
+        }
+    }
+
+    const adminOnlySelectors = [
+        "#cartSection",
+        "#mobileCartToggle",
+        "#btnSaveSettings",
+        "#btnClearHistory",
+        ".btn-delete-trx",
+        ".btn-resume-pending"
+    ];
+
+    adminOnlySelectors.forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => {
+            el.style.display = isAdmin ? "" : "none";
+        });
+    });
+
+    document.querySelectorAll("#settings-page input").forEach(input => {
+        input.disabled = !isAdmin;
+    });
+};
+
+// ==========================================================================
 // SINKRONISASI LOKAL + CLOUD FIREBASE
 // ==========================================================================
 const persistTransactions = () => {
+    if (!isAdmin) return;
     localStorage.setItem("sweet_memories_transactions", JSON.stringify(transactions));
     if (db) db.ref("sweet_memories/transactions").set(transactions);
 };
 
 const persistPending = () => {
+    if (!isAdmin) return;
     localStorage.setItem("sweet_memories_pending", JSON.stringify(pendingOrders));
     if (db) db.ref("sweet_memories/pendingOrders").set(pendingOrders);
 };
@@ -172,6 +224,7 @@ const syncAllViews = () => {
     updateHistoryTable();
     updateReportSummary();
     updatePendingUI();
+    updateAdminUI();
 };
 
 const startRealtimeClock = () => {
@@ -222,6 +275,7 @@ const renderMenu = () => {
 };
 
 const handleProductClick = (product) => {
+    if (!isAdmin) return;
     if (product.isCustom) {
         selectedBeadProduct = product;
         populateBeadPrices();
@@ -251,6 +305,7 @@ const populateBeadPrices = () => {
 // KERANJANG & PERHITUNGAN
 // ==========================================================================
 const addToCart = (product) => {
+    if (!isAdmin) return;
     const existingIndex = cart.findIndex(item => String(item.id) === String(product.id) || item.name === product.name);
     if (existingIndex > -1) {
         cart[existingIndex].qty += 1;
@@ -261,6 +316,7 @@ const addToCart = (product) => {
 };
 
 window.updateQty = (id, delta) => {
+    if (!isAdmin) return;
     const index = cart.findIndex(item => String(item.id) === String(id));
     if (index > -1) {
         cart[index].qty += delta;
@@ -382,9 +438,11 @@ const updatePendingUI = () => {
         `;
         grid.appendChild(card);
     });
+    updateAdminUI();
 };
 
 window.resumePendingOrder = (pendingId) => {
+    if (!isAdmin) return;
     const target = pendingOrders.find(p => p.id === pendingId);
     if (!target) return;
     if (cart.length > 0 && !confirm("Keranjang kasir masih berisi pesanan. Ganti dengan pesanan antrean ini?")) return;
@@ -403,6 +461,7 @@ window.resumePendingOrder = (pendingId) => {
 };
 
 window.deletePendingOrder = (pendingId) => {
+    if (!isAdmin) return;
     if (confirm("Hapus pesanan pending ini dari antrean?")) {
         pendingOrders = pendingOrders.filter(p => p.id !== pendingId);
         persistPending();
@@ -438,9 +497,11 @@ const updateHistoryTable = () => {
         `;
         tbody.appendChild(tr);
     });
+    updateAdminUI();
 };
 
 window.deleteTransaction = (trxId) => {
+    if (!isAdmin) return;
     if (confirm(`Apakah Anda yakin ingin menghapus transaksi ${trxId}?`)) {
         transactions = transactions.filter(t => t.id !== trxId);
         persistTransactions();
@@ -563,6 +624,51 @@ const initEventListeners = () => {
         if (el) el.addEventListener(event, fn);
     };
 
+    if (auth) {
+        auth.onAuthStateChanged((user) => {
+            isAdmin = !!user;
+            updateAdminUI();
+            syncAllViews();
+        });
+    }
+
+    on("btnAdminAuth", "click", () => {
+        if (isAdmin && auth) {
+            if (confirm("Keluar dari mode Admin? Web akan kembali ke Mode Tamu (Read-Only).")) {
+                auth.signOut();
+            }
+        } else {
+            const lm = document.getElementById("adminLoginModal");
+            const errEl = document.getElementById("loginErrorMsg");
+            if (errEl) errEl.style.display = "none";
+            if (lm) lm.classList.add("active");
+        }
+    });
+
+    on("btnCloseLoginModal", "click", () => {
+        const lm = document.getElementById("adminLoginModal");
+        if (lm) lm.classList.remove("active");
+    });
+
+    on("btnSubmitAdminLogin", "click", () => {
+        if (!auth) return;
+        const email = document.getElementById("adminEmail").value.trim();
+        const pass = document.getElementById("adminPassword").value;
+        const errEl = document.getElementById("loginErrorMsg");
+
+        auth.signInWithEmailAndPassword(email, pass)
+            .then(() => {
+                document.getElementById("adminLoginModal").classList.remove("active");
+                document.getElementById("adminPassword").value = "";
+            })
+            .catch(() => {
+                if (errEl) {
+                    errEl.textContent = "Email atau password Admin salah!";
+                    errEl.style.display = "block";
+                }
+            });
+    });
+
     on("sidebarToggle", "click", () => {
         if (sidebar) sidebar.classList.toggle("collapsed");
         if (appContainer) appContainer.classList.toggle("sidebar-collapsed");
@@ -574,6 +680,7 @@ const initEventListeners = () => {
     });
 
     on("mobileCartToggle", "click", () => {
+        if (!isAdmin) return;
         if (cartSection) cartSection.classList.add("mobile-cart-open");
         if (mobileBackdrop) mobileBackdrop.classList.add("active");
     });
@@ -602,10 +709,14 @@ const initEventListeners = () => {
         renderMenu();
     });
 
-    on("btnClearCart", "click", () => { cart = []; updateCartUI(); });
+    on("btnClearCart", "click", () => {
+        if (!isAdmin) return;
+        cart = [];
+        updateCartUI();
+    });
 
     on("btnHoldOrder", "click", () => {
-        if (cart.length === 0) return;
+        if (!isAdmin || cart.length === 0) return;
         const now = new Date();
         const custInput = document.getElementById("customerName");
         const customer = (custInput && custInput.value.trim()) || `Antrean #${pendingOrders.length + 1}`;
@@ -629,6 +740,7 @@ const initEventListeners = () => {
     });
 
     on("btnCheckout", "click", () => {
+        if (!isAdmin) return;
         const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
         const grandTotal = subtotal + (subtotal * (appSettings.taxRate / 100)) + appSettings.serviceFee;
         const modalTotal = document.getElementById("modalTotal");
@@ -689,6 +801,7 @@ const initEventListeners = () => {
     });
 
     on("btnConfirmPay", "click", () => {
+        if (!isAdmin) return;
         const custInput = document.getElementById("customerName");
         const customer = (custInput && custInput.value.trim()) || "-";
         const payRadio = document.querySelector('input[name="payMethod"]:checked');
@@ -746,6 +859,7 @@ const initEventListeners = () => {
     });
 
     on("btnConfirmCustomBead", "click", () => {
+        if (!isAdmin) return;
         const priceSel = document.getElementById("beadVariantPrice");
         if (!selectedBeadProduct || !priceSel) return;
         const opt = priceSel.options[priceSel.selectedIndex];
@@ -791,6 +905,7 @@ const initEventListeners = () => {
     });
 
     on("btnSaveSettings", "click", () => {
+        if (!isAdmin) return;
         const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
         appSettings.storeName = getVal("cfgStoreName");
         appSettings.slogan = getVal("cfgSlogan");
@@ -812,6 +927,7 @@ const initEventListeners = () => {
     });
 
     on("btnClearHistory", "click", () => {
+        if (!isAdmin) return;
         if (confirm("Hapus seluruh riwayat transaksi di semua perangkat?")) {
             transactions = [];
             persistTransactions();
@@ -995,4 +1111,5 @@ document.addEventListener("DOMContentLoaded", () => {
     initRealtimeCloudSync();
     startRealtimeClock();
     renderMenu();
+    updateAdminUI();
 });
