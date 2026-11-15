@@ -40,7 +40,7 @@ let selectedBeadProduct = null;
 let btPrinterCharacteristic = null;
 
 // Jumlah karakter per baris printer thermal (48 untuk kertas lebar 80mm, 32 untuk kertas 58mm)
-const RECEIPT_LINE_WIDTH = 48;
+const RECEIPT_LINE_WIDTH = 32;
 
 let appSettings = {
     storeName: "Sweet Memories",
@@ -56,7 +56,7 @@ let appSettings = {
 
 const menuItems = [
     { id: 1, name: "Donat Jadoel", price: 3500, category: "makanan", img: "pict/img/Donat.png" },
-    { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/Bomboloni.png" },
+    { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/bomboloni.png" },
     { id: 3, name: "Soda Gembira", price: 12000, category: "minuman", img: "pict/img/sodagembira.jpg" },
     { id: 4, name: "Mango Sticky Rice", price: 15000, category: "makanan", img: "pict/img/mangostr.jpg" },
     { id: 5, name: "Kue Sus", price: 3500, category: "makanan", img: "pict/img/kuesus.png" },
