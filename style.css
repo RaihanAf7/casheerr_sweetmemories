@@ -1357,7 +1357,7 @@ input:checked + .slider:before {
     border: 1px dashed #ccc;
     border-radius: 4px;
     width: 100%;
-    max-width: 80mm;
+    max-width: 58mm;
     margin: 0 auto;
 }
 
@@ -1461,24 +1461,57 @@ input:checked + .slider:before {
 }
 
 @media print {
-    body * { visibility: hidden; }
-    #thermalReceiptContent, #thermalReceiptContent * { visibility: visible; }
-    #thermalReceiptContent {
-        position: fixed;
-        left: 0;
-        top: 0;
-        width: 72mm;
-        max-width: 72mm;
-        margin: 0;
-        padding: 2mm 4mm;
-        border: none;
-        box-shadow: none;
-        font-size: 11px;
-        line-height: 1.3;
-    }
     @page {
-        size: 80mm auto;
-        margin: 0;
+        size: 58mm auto;
+        margin: 0 !important;
+    }
+    html, body {
+        width: 58mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    body > *:not(#receiptModal) {
+        display: none !important;
+    }
+    #receiptModal {
+        position: static !important;
+        display: block !important;
+        background: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    .receipt-modal-card {
+        position: static !important;
+        display: block !important;
+        width: 58mm !important;
+        max-width: 58mm !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+    .receipt-modal-card .modal-header,
+    .receipt-print-actions {
+        display: none !important;
+    }
+    #thermalReceiptContent {
+        position: static !important;
+        display: block !important;
+        width: 48mm !important;
+        max-width: 48mm !important;
+        margin: 0 !important;
+        padding: 2mm 1mm !important;
+        border: none !important;
+        box-shadow: none !important;
+        font-size: 10px !important;
+        line-height: 1.3 !important;
+        box-sizing: border-box !important;
     }
 }
 
