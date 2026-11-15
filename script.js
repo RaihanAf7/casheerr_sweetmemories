@@ -37,6 +37,10 @@ let searchQuery = "";
 let currentOrderType = "Mahasiswa";
 let currentReceiptData = null;
 let selectedBeadProduct = null;
+let btPrinterCharacteristic = null;
+
+// Jumlah karakter per baris printer thermal (48 untuk kertas lebar 80mm, 32 untuk kertas 58mm)
+const RECEIPT_LINE_WIDTH = 48;
 
 let appSettings = {
     storeName: "Sweet Memories",
@@ -52,7 +56,7 @@ let appSettings = {
 
 const menuItems = [
     { id: 1, name: "Donat Jadoel", price: 3500, category: "makanan", img: "pict/img/Donat.png" },
-    { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/Bomboloni.png" },
+    { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/bomboloni.png" },
     { id: 3, name: "Soda Gembira", price: 12000, category: "minuman", img: "pict/img/sodagembira.jpg" },
     { id: 4, name: "Mango Sticky Rice", price: 15000, category: "makanan", img: "pict/img/mangostr.jpg" },
     { id: 5, name: "Kue Sus", price: 3500, category: "makanan", img: "pict/img/kuesus.png" },
@@ -84,6 +88,149 @@ const beadVariants = {
 };
 
 const formatRupiah = (number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(number || 0);
+
+// ==========================================================================
+// CETAK LANGSUNG KE PRINTER THERMAL BLUETOOTH (ESC/POS)
+// ==========================================================================
+const connectBluetoothPrinter = async () => {
+    if (!navigator.bluetooth) {
+        throw new Error("Browser ini tidak mendukung Bluetooth langsung. Gunakan Google Chrome di Android/Windows.");
+    }
+
+    if (btPrinterCharacteristic && btPrinterCharacteristic.service && btPrinterCharacteristic.service.device.gatt.connected) {
+        return btPrinterCharacteristic;
+    }
+
+    const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: [
+            "000018f0-0000-1000-8000-00805f9b34fb",
+            "0000ff00-0000-1000-8000-00805f9b34fb",
+            "49535343-fe7d-4ae5-8fa9-9fafd205e455",
+            "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
+            "0000ae30-0000-1000-8000-00805f9b34fb"
+        ]
+    });
+
+    const server = await device.gatt.connect();
+    const services = await server.getPrimaryServices();
+
+    for (const service of services) {
+        const characteristics = await service.getCharacteristics();
+        for (const char of characteristics) {
+            if (char.properties.write || char.properties.writeWithoutResponse) {
+                btPrinterCharacteristic = char;
+                return char;
+            }
+        }
+    }
+
+    throw new Error("Port cetak Bluetooth printer tidak ditemukan.");
+};
+
+// Format baris kiri-kanan sesuai lebar kolom kertas thermal
+const formatReceiptLine = (left, right, width = RECEIPT_LINE_WIDTH) => {
+    const l = String(left || "");
+    const r = String(right || "");
+    if (l.length + r.length + 1 > width) {
+        return l.slice(0, Math.max(0, width - r.length - 1)) + " " + r + "\n";
+    }
+    const spaceCount = width - l.length - r.length;
+    return l + " ".repeat(spaceCount) + r + "\n";
+};
+
+// Bungkus teks panjang agar rapi menyesuaikan lebar kertas thermal
+const wrapReceiptText = (text, width = RECEIPT_LINE_WIDTH) => {
+    const words = String(text || "").split(/\s+/);
+    let lines = [];
+    let currentLine = "";
+
+    words.forEach(word => {
+        if ((currentLine + (currentLine ? " " : "") + word).length <= width) {
+            currentLine += (currentLine ? " " : "") + word;
+        } else {
+            if (currentLine) lines.push(currentLine);
+            currentLine = word;
+        }
+    });
+    if (currentLine) lines.push(currentLine);
+    return lines.join("\n") + "\n";
+};
+
+const buildEscPosReceipt = (trx, width = RECEIPT_LINE_WIDTH) => {
+    const ESC = "\x1B";
+    const GS = "\x1D";
+    const INIT = ESC + "@";
+    const CENTER = ESC + "a\x01";
+    const LEFT = ESC + "a\x00";
+    const BOLD_ON = ESC + "E\x01";
+    const BOLD_OFF = ESC + "E\x00";
+    const DOUBLE_HW = GS + "!\x11";
+    const NORMAL_SIZE = GS + "!\x00";
+    const CUT = GS + "V\x41\x03";
+
+    const line = "-".repeat(width) + "\n";
+    const dline = "=".repeat(width) + "\n";
+    const rp = (n) => "Rp " + (Number(n) || 0).toLocaleString("id-ID");
+
+    let text = INIT;
+    text += CENTER + BOLD_ON + DOUBLE_HW + appSettings.storeName.toUpperCase() + "\n" + NORMAL_SIZE + BOLD_OFF;
+    text += wrapReceiptText(appSettings.slogan, width);
+    text += wrapReceiptText(appSettings.address, width);
+    text += "Telp: " + appSettings.phone + "\n";
+    text += LEFT + dline;
+
+    text += formatReceiptLine("No. Trx", trx.id, width);
+    text += formatReceiptLine("Waktu", `${trx.date} ${trx.time}`, width);
+    text += formatReceiptLine("Pelanggan", trx.customer, width);
+    text += formatReceiptLine("Tipe", trx.type, width);
+    text += line;
+
+    (trx.items || []).forEach(item => {
+        text += BOLD_ON + item.name + BOLD_OFF + "\n";
+        text += formatReceiptLine(`  ${item.qty} x ${rp(item.price)}`, rp(item.price * item.qty), width);
+    });
+
+    text += line;
+    text += formatReceiptLine("Subtotal", rp(trx.subtotal ?? trx.total), width);
+    text += formatReceiptLine(`Pajak (${appSettings.taxRate}%)`, rp(trx.tax ?? 0), width);
+    text += BOLD_ON + formatReceiptLine("TOTAL BAYAR", rp(trx.total), width) + BOLD_OFF;
+    text += formatReceiptLine("Metode", trx.method, width);
+    text += formatReceiptLine("Tunai", rp(trx.paid ?? trx.total), width);
+    text += BOLD_ON + formatReceiptLine("Kembalian", rp(trx.change ?? 0), width) + BOLD_OFF;
+    text += dline;
+
+    text += CENTER + BOLD_ON + wrapReceiptText(appSettings.receiptHeader, width) + BOLD_OFF;
+    text += wrapReceiptText(appSettings.receiptFooter, width) + "\n\n\n";
+    text += CUT;
+
+    return text.replace(/[^\x00-\x7F]/g, "");
+};
+
+const printReceiptBluetooth = async (trx) => {
+    if (!trx) return;
+    try {
+        const char = await connectBluetoothPrinter();
+        const rawPayload = buildEscPosReceipt(trx);
+        const encoder = new TextEncoder();
+        const data = encoder.encode(rawPayload);
+
+        const chunkSize = 100;
+        for (let i = 0; i < data.length; i += chunkSize) {
+            const chunk = data.slice(i, i + chunkSize);
+            if (char.properties.writeWithoutResponse) {
+                await char.writeValueWithoutResponse(chunk);
+            } else {
+                await char.writeValue(chunk);
+            }
+            await new Promise(r => setTimeout(r, 25));
+        }
+
+        showWebAlert("Struk berhasil dicetak ke printer Bluetooth!", "Cetak Berhasil", "success");
+    } catch (err) {
+        showWebAlert("Gagal cetak Bluetooth: " + err.message, "Printer Bluetooth", "error");
+    }
+};
 
 // ==========================================================================
 // CUSTOM POP-UP NOTIFIKASI & KONFIRMASI DI DALAM WEB (AUTO-INJECT HTML)
@@ -1026,7 +1173,13 @@ const initEventListeners = () => {
         if (window.innerWidth <= 768) closeMobileDrawers();
 
         showReceiptModal(trx);
-        if (appSettings.autoPrint) setTimeout(() => window.print(), 400);
+        if (appSettings.autoPrint) {
+            if (btPrinterCharacteristic && btPrinterCharacteristic.service && btPrinterCharacteristic.service.device.gatt.connected) {
+                printReceiptBluetooth(trx);
+            } else {
+                setTimeout(() => window.print(), 400);
+            }
+        }
     });
 
     on("beadVariantType", "change", populateBeadPrices);
@@ -1051,6 +1204,9 @@ const initEventListeners = () => {
         if (cm) cm.classList.remove("active");
     });
 
+    on("btnPrintBluetooth80", "click", () => {
+        if (currentReceiptData) printReceiptBluetooth(currentReceiptData);
+    });
     on("btnPrintReceiptNow", "click", () => window.print());
     on("btnCloseReceiptModal", "click", () => {
         const rm = document.getElementById("receiptModal");
