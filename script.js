@@ -86,11 +86,34 @@ const beadVariants = {
 const formatRupiah = (number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(number || 0);
 
 // ==========================================================================
-// CUSTOM POP-UP NOTIFIKASI & KONFIRMASI DI DALAM WEB
+// CUSTOM POP-UP NOTIFIKASI & KONFIRMASI DI DALAM WEB (AUTO-INJECT HTML)
 // ==========================================================================
+const ensureWebAlertModal = () => {
+    let modal = document.getElementById("webAlertModal");
+    if (!modal) {
+        modal = document.createElement("div");
+        modal.className = "modal-overlay";
+        modal.id = "webAlertModal";
+        modal.innerHTML = `
+            <div class="modal-card web-alert-card">
+                <div class="web-alert-icon" id="webAlertIcon">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <h3 id="webAlertTitle">Berhasil</h3>
+                <p id="webAlertMessage">Pesan notifikasi</p>
+                <div class="web-alert-actions" id="webAlertActions">
+                    <button type="button" class="btn-secondary" id="btnWebAlertCancel" style="display: none;">Batal</button>
+                    <button type="button" class="btn-confirm" id="btnWebAlertOk" style="margin-top: 0;">OK</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    return modal;
+};
+
 const showWebAlert = (message, title = "Informasi", type = "info") => {
-    const modal = document.getElementById("webAlertModal");
-    if (!modal) return;
+    const modal = ensureWebAlertModal();
 
     const iconEl = document.getElementById("webAlertIcon");
     const titleEl = document.getElementById("webAlertTitle");
@@ -119,8 +142,7 @@ const showWebAlert = (message, title = "Informasi", type = "info") => {
 };
 
 const showWebConfirm = (message, title = "Konfirmasi", onConfirm) => {
-    const modal = document.getElementById("webAlertModal");
-    if (!modal) return;
+    const modal = ensureWebAlertModal();
 
     const iconEl = document.getElementById("webAlertIcon");
     const titleEl = document.getElementById("webAlertTitle");
@@ -146,7 +168,23 @@ const showWebConfirm = (message, title = "Konfirmasi", onConfirm) => {
 };
 
 // ==========================================================================
-// KONTROL AKSES ADMIN (TOLAK PENGATURAN DI MODE TAMU)
+// COPYRIGHT FOOTER DI SIDEBAR
+// ==========================================================================
+const renderSidebarCopyright = () => {
+    const sidebar = document.getElementById("sidebar");
+    if (!sidebar || document.getElementById("sidebarCopyright")) return;
+    const footer = document.createElement("div");
+    footer.className = "sidebar-copyright";
+    footer.id = "sidebarCopyright";
+    footer.innerHTML = `
+        <strong>&copy; Copyright 2026 by Raihan.</strong>
+        <small>Teknologi &amp; Media Informasi</small>
+    `;
+    sidebar.appendChild(footer);
+};
+
+// ==========================================================================
+// KONTROL AKSES ADMIN (TOLAK LAPORAN PENJUALAN & PENGATURAN DI MODE TAMU)
 // ==========================================================================
 const updateAdminUI = () => {
     const btnAuth = document.getElementById("btnAdminAuth");
@@ -162,15 +200,20 @@ const updateAdminUI = () => {
         }
     }
 
-    // Sembunyikan menu Pengaturan dari sidebar saat Mode Tamu
-    const settingsNav = document.querySelector('.nav-link[data-page="settings-page"]');
-    if (settingsNav) {
-        settingsNav.style.display = isAdmin ? "" : "none";
-    }
+    // Sembunyikan menu Laporan Penjualan dan Pengaturan dari sidebar saat Mode Tamu
+    const restrictedNavs = [
+        '.nav-link[data-page="report-page"]',
+        '.nav-link[data-page="settings-page"]'
+    ];
+    restrictedNavs.forEach(selector => {
+        const navEl = document.querySelector(selector);
+        if (navEl) navEl.style.display = isAdmin ? "" : "none";
+    });
 
-    // Jika sedang di halaman Pengaturan lalu logout ke Mode Tamu, lempar kembali ke Menu Utama
+    // Jika sedang di halaman Laporan Penjualan atau Pengaturan lalu logout ke Mode Tamu, arahkan ke Menu Utama
+    const reportPage = document.getElementById("report-page");
     const settingsPage = document.getElementById("settings-page");
-    if (!isAdmin && settingsPage && settingsPage.classList.contains("active")) {
+    if (!isAdmin && ((reportPage && reportPage.classList.contains("active")) || (settingsPage && settingsPage.classList.contains("active")))) {
         switchToPage("menu-page");
     }
 
@@ -701,9 +744,9 @@ const closeMobileDrawers = () => {
 };
 
 const switchToPage = (targetPage) => {
-    // Tolak akses Pengaturan jika Mode Tamu
-    if (targetPage === "settings-page" && !isAdmin) {
-        showWebAlert("Akses ditolak! Menu Pengaturan hanya dapat dibuka oleh Admin.", "Akses Ditolak", "error");
+    // Tolak akses Laporan Penjualan dan Pengaturan jika Mode Tamu
+    if ((targetPage === "settings-page" || targetPage === "report-page") && !isAdmin) {
+        showWebAlert("Akses ditolak! Halaman ini hanya dapat dibuka oleh Admin.", "Akses Ditolak", "error");
         return;
     }
 
@@ -1233,6 +1276,7 @@ const initEventListeners = () => {
 
 // Jalankan setelah DOM siap sepenuhnya
 document.addEventListener("DOMContentLoaded", () => {
+    renderSidebarCopyright();
     initEventListeners();
     loadSettings();
     initRealtimeCloudSync();
