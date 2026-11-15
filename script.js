@@ -45,7 +45,6 @@ let appSettings = {
     phone: "0853-1955-8384",
     taxRate: 0,
     serviceFee: 0,
-    qrisPath: "pict/img/QRISBarcode.jpeg",
     receiptHeader: "Selamat Datang di Sweet Memories!",
     receiptFooter: "Terima kasih atas kunjungannya, datang kembali ya! ♥",
     autoPrint: true
@@ -53,7 +52,7 @@ let appSettings = {
 
 const menuItems = [
     { id: 1, name: "Donat Jadoel", price: 3500, category: "makanan", img: "pict/img/Donat.png" },
-    { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/Bomboloni.png" },
+    { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/bomboloni.png" },
     { id: 3, name: "Soda Gembira", price: 12000, category: "minuman", img: "pict/img/sodagembira.jpg" },
     { id: 4, name: "Mango Sticky Rice", price: 15000, category: "makanan", img: "pict/img/mangostr.jpg" },
     { id: 5, name: "Kue Sus", price: 3500, category: "makanan", img: "pict/img/kuesus.png" },
@@ -87,7 +86,67 @@ const beadVariants = {
 const formatRupiah = (number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(number || 0);
 
 // ==========================================================================
-// KONTROL AKSES ADMIN (READ-ONLY UNTUK PENGUNJUNG)
+// CUSTOM POP-UP NOTIFIKASI & KONFIRMASI DI DALAM WEB
+// ==========================================================================
+const showWebAlert = (message, title = "Informasi", type = "info") => {
+    const modal = document.getElementById("webAlertModal");
+    if (!modal) return;
+
+    const iconEl = document.getElementById("webAlertIcon");
+    const titleEl = document.getElementById("webAlertTitle");
+    const msgEl = document.getElementById("webAlertMessage");
+    const btnCancel = document.getElementById("btnWebAlertCancel");
+    const btnOk = document.getElementById("btnWebAlertOk");
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    btnCancel.style.display = "none";
+    btnOk.textContent = "OK";
+
+    iconEl.className = "web-alert-icon";
+    if (type === "success") {
+        iconEl.classList.add("success");
+        iconEl.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
+    } else if (type === "error") {
+        iconEl.classList.add("error");
+        iconEl.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i>`;
+    } else {
+        iconEl.innerHTML = `<i class="fa-solid fa-circle-info"></i>`;
+    }
+
+    modal.classList.add("active");
+    btnOk.onclick = () => modal.classList.remove("active");
+};
+
+const showWebConfirm = (message, title = "Konfirmasi", onConfirm) => {
+    const modal = document.getElementById("webAlertModal");
+    if (!modal) return;
+
+    const iconEl = document.getElementById("webAlertIcon");
+    const titleEl = document.getElementById("webAlertTitle");
+    const msgEl = document.getElementById("webAlertMessage");
+    const btnCancel = document.getElementById("btnWebAlertCancel");
+    const btnOk = document.getElementById("btnWebAlertOk");
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    btnCancel.style.display = "inline-block";
+    btnOk.textContent = "Ya, Lanjutkan";
+
+    iconEl.className = "web-alert-icon error";
+    iconEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
+
+    modal.classList.add("active");
+
+    btnCancel.onclick = () => modal.classList.remove("active");
+    btnOk.onclick = () => {
+        modal.classList.remove("active");
+        if (typeof onConfirm === "function") onConfirm();
+    };
+};
+
+// ==========================================================================
+// KONTROL AKSES ADMIN (TOLAK PENGATURAN DI MODE TAMU)
 // ==========================================================================
 const updateAdminUI = () => {
     const btnAuth = document.getElementById("btnAdminAuth");
@@ -103,9 +162,43 @@ const updateAdminUI = () => {
         }
     }
 
+    // Sembunyikan menu Pengaturan dari sidebar saat Mode Tamu
+    const settingsNav = document.querySelector('.nav-link[data-page="settings-page"]');
+    if (settingsNav) {
+        settingsNav.style.display = isAdmin ? "" : "none";
+    }
+
+    // Jika sedang di halaman Pengaturan lalu logout ke Mode Tamu, lempar kembali ke Menu Utama
+    const settingsPage = document.getElementById("settings-page");
+    if (!isAdmin && settingsPage && settingsPage.classList.contains("active")) {
+        switchToPage("menu-page");
+    }
+
+    const cartSection = document.getElementById("cartSection");
+    if (cartSection) cartSection.style.display = "";
+
+    const mobileCartToggle = document.getElementById("mobileCartToggle");
+    if (mobileCartToggle) mobileCartToggle.style.display = "";
+
+    const btnHoldOrder = document.getElementById("btnHoldOrder");
+    const btnCheckout = document.getElementById("btnCheckout");
+    const actionsRow = document.querySelector(".cart-actions-row");
+
+    if (isAdmin) {
+        if (actionsRow) actionsRow.style.gridTemplateColumns = "auto 1fr";
+        if (btnHoldOrder) btnHoldOrder.style.display = "";
+        if (btnCheckout) {
+            btnCheckout.innerHTML = `Bayar Sekarang <i class="fa-solid fa-arrow-right"></i>`;
+        }
+    } else {
+        if (actionsRow) actionsRow.style.gridTemplateColumns = "1fr";
+        if (btnHoldOrder) btnHoldOrder.style.display = "none";
+        if (btnCheckout) {
+            btnCheckout.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Pesan (Masuk Pending)`;
+        }
+    }
+
     const adminOnlySelectors = [
-        "#cartSection",
-        "#mobileCartToggle",
         "#btnSaveSettings",
         "#btnClearHistory",
         ".btn-delete-trx",
@@ -133,9 +226,10 @@ const persistTransactions = () => {
 };
 
 const persistPending = () => {
-    if (!isAdmin) return;
     localStorage.setItem("sweet_memories_pending", JSON.stringify(pendingOrders));
-    if (db) db.ref("sweet_memories/pendingOrders").set(pendingOrders);
+    if (db) {
+        db.ref("sweet_memories/pendingOrders").set(pendingOrders);
+    }
 };
 
 const initRealtimeCloudSync = () => {
@@ -186,12 +280,8 @@ const applySettingsToForm = () => {
     setVal("cfgPhone", appSettings.phone);
     setVal("cfgTaxRate", appSettings.taxRate);
     setVal("cfgServiceFee", appSettings.serviceFee);
-    setVal("qrisImagePath", appSettings.qrisPath);
     setVal("cfgReceiptHeader", appSettings.receiptHeader);
     setVal("cfgReceiptFooter", appSettings.receiptFooter);
-
-    const qrisPrev = document.getElementById("cfgQrisPreview");
-    if (qrisPrev) qrisPrev.src = appSettings.qrisPath;
 
     const autoPrintEl = document.getElementById("cfgAutoPrint");
     if (autoPrintEl) autoPrintEl.checked = appSettings.autoPrint;
@@ -275,7 +365,6 @@ const renderMenu = () => {
 };
 
 const handleProductClick = (product) => {
-    if (!isAdmin) return;
     if (product.isCustom) {
         selectedBeadProduct = product;
         populateBeadPrices();
@@ -305,7 +394,6 @@ const populateBeadPrices = () => {
 // KERANJANG & PERHITUNGAN
 // ==========================================================================
 const addToCart = (product) => {
-    if (!isAdmin) return;
     const existingIndex = cart.findIndex(item => String(item.id) === String(product.id) || item.name === product.name);
     if (existingIndex > -1) {
         cart[existingIndex].qty += 1;
@@ -316,7 +404,6 @@ const addToCart = (product) => {
 };
 
 window.updateQty = (id, delta) => {
-    if (!isAdmin) return;
     const index = cart.findIndex(item => String(item.id) === String(id));
     if (index > -1) {
         cart[index].qty += delta;
@@ -445,28 +532,35 @@ window.resumePendingOrder = (pendingId) => {
     if (!isAdmin) return;
     const target = pendingOrders.find(p => p.id === pendingId);
     if (!target) return;
-    if (cart.length > 0 && !confirm("Keranjang kasir masih berisi pesanan. Ganti dengan pesanan antrean ini?")) return;
 
-    cart = (target.items || []).map(item => ({ ...item }));
-    const custInput = document.getElementById("customerName");
-    if (custInput) custInput.value = target.customer.startsWith("Antrean #") ? "" : target.customer;
-    currentOrderType = target.type;
+    const proceedResume = () => {
+        cart = (target.items || []).map(item => ({ ...item }));
+        const custInput = document.getElementById("customerName");
+        if (custInput) custInput.value = (target.customer.startsWith("Antrean #") || target.customer.startsWith("Tamu #")) ? "" : target.customer;
+        currentOrderType = target.type;
 
-    document.querySelectorAll(".type-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.type === currentOrderType));
-    pendingOrders = pendingOrders.filter(p => p.id !== pendingId);
-    persistPending();
-    updateCartUI();
-    updatePendingUI();
-    switchToPage("menu-page");
+        document.querySelectorAll(".type-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.type === currentOrderType));
+        pendingOrders = pendingOrders.filter(p => p.id !== pendingId);
+        persistPending();
+        updateCartUI();
+        updatePendingUI();
+        switchToPage("menu-page");
+    };
+
+    if (cart.length > 0) {
+        showWebConfirm("Keranjang kasir masih berisi pesanan. Ganti dengan pesanan antrean ini?", "Ganti Keranjang", proceedResume);
+    } else {
+        proceedResume();
+    }
 };
 
 window.deletePendingOrder = (pendingId) => {
     if (!isAdmin) return;
-    if (confirm("Hapus pesanan pending ini dari antrean?")) {
+    showWebConfirm("Hapus pesanan pending ini dari antrean?", "Hapus Antrean", () => {
         pendingOrders = pendingOrders.filter(p => p.id !== pendingId);
         persistPending();
         updatePendingUI();
-    }
+    });
 };
 
 const updateHistoryTable = () => {
@@ -502,11 +596,11 @@ const updateHistoryTable = () => {
 
 window.deleteTransaction = (trxId) => {
     if (!isAdmin) return;
-    if (confirm(`Apakah Anda yakin ingin menghapus transaksi ${trxId}?`)) {
+    showWebConfirm(`Apakah Anda yakin ingin menghapus transaksi ${trxId}?`, "Hapus Transaksi", () => {
         transactions = transactions.filter(t => t.id !== trxId);
         persistTransactions();
         syncAllViews();
-    }
+    });
 };
 
 window.viewReceiptFromHistory = (trxId) => {
@@ -595,7 +689,7 @@ const showReceiptModal = (trx) => {
 };
 
 // ==========================================================================
-// NAVIGASI & EVENT LISTENERS (SEMUA AMAN DENGAN PENGECEKAN)
+// NAVIGASI & EVENT LISTENERS
 // ==========================================================================
 const closeMobileDrawers = () => {
     const sb = document.getElementById("sidebar");
@@ -607,6 +701,12 @@ const closeMobileDrawers = () => {
 };
 
 const switchToPage = (targetPage) => {
+    // Tolak akses Pengaturan jika Mode Tamu
+    if (targetPage === "settings-page" && !isAdmin) {
+        showWebAlert("Akses ditolak! Menu Pengaturan hanya dapat dibuka oleh Admin.", "Akses Ditolak", "error");
+        return;
+    }
+
     document.querySelectorAll(".nav-link").forEach(l => l.classList.toggle("active", l.dataset.page === targetPage));
     document.querySelectorAll(".page-content").forEach(p => p.classList.toggle("active", p.id === targetPage));
     if (["history-page", "report-page", "pending-page"].includes(targetPage)) syncAllViews();
@@ -634,9 +734,9 @@ const initEventListeners = () => {
 
     on("btnAdminAuth", "click", () => {
         if (isAdmin && auth) {
-            if (confirm("Keluar dari mode Admin? Web akan kembali ke Mode Tamu (Read-Only).")) {
+            showWebConfirm("Keluar dari mode Admin? Web akan kembali ke Mode Tamu.", "Logout Admin", () => {
                 auth.signOut();
-            }
+            });
         } else {
             const lm = document.getElementById("adminLoginModal");
             const errEl = document.getElementById("loginErrorMsg");
@@ -680,7 +780,6 @@ const initEventListeners = () => {
     });
 
     on("mobileCartToggle", "click", () => {
-        if (!isAdmin) return;
         if (cartSection) cartSection.classList.add("mobile-cart-open");
         if (mobileBackdrop) mobileBackdrop.classList.add("active");
     });
@@ -710,37 +809,69 @@ const initEventListeners = () => {
     });
 
     on("btnClearCart", "click", () => {
-        if (!isAdmin) return;
         cart = [];
         updateCartUI();
     });
 
-    on("btnHoldOrder", "click", () => {
-        if (!isAdmin || cart.length === 0) return;
+    const submitOrderToPending = () => {
+        if (cart.length === 0) return;
         const now = new Date();
         const custInput = document.getElementById("customerName");
-        const customer = (custInput && custInput.value.trim()) || `Antrean #${pendingOrders.length + 1}`;
+        const customer = (custInput && custInput.value.trim()) || (isAdmin ? `Antrean #${pendingOrders.length + 1}` : `Tamu #${pendingOrders.length + 1}`);
         const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
         const total = subtotal + (subtotal * (appSettings.taxRate / 100)) + appSettings.serviceFee;
 
-        pendingOrders.unshift({
+        const newOrder = {
             id: "PEND-" + Date.now().toString().slice(-4),
             time: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
             customer,
             type: currentOrderType,
             items: cart.map(i => ({ ...i })),
             total
-        });
-        persistPending();
-        cart = [];
-        if (custInput) custInput.value = "";
-        updateCartUI();
-        updatePendingUI();
-        if (window.innerWidth <= 768) closeMobileDrawers();
+        };
+
+        if (db) {
+            db.ref("sweet_memories/pendingOrders").push(newOrder)
+                .then(() => {
+                    cart = [];
+                    if (custInput) custInput.value = "";
+                    updateCartUI();
+                    if (window.innerWidth <= 768) closeMobileDrawers();
+                    if (!isAdmin) {
+                        showWebAlert("Pesanan berhasil dikirim ke Antrean Pending! Silakan konfirmasi ke kasir.", "Pesanan Terkirim", "success");
+                        switchToPage("pending-page");
+                    } else {
+                        showWebAlert("Pesanan berhasil disimpan ke Antrean Pending.", "Antrean Tersimpan", "success");
+                    }
+                })
+                .catch((err) => {
+                    showWebAlert("Gagal mengirim pesanan ke server: " + err.message, "Gagal Mengirim", "error");
+                });
+        } else {
+            pendingOrders.unshift(newOrder);
+            localStorage.setItem("sweet_memories_pending", JSON.stringify(pendingOrders));
+            cart = [];
+            if (custInput) custInput.value = "";
+            updateCartUI();
+            updatePendingUI();
+            if (!isAdmin) {
+                showWebAlert("Pesanan berhasil dikirim ke Antrean Pending! Silakan konfirmasi ke kasir.", "Pesanan Terkirim", "success");
+                switchToPage("pending-page");
+            }
+        }
+    };
+
+    on("btnHoldOrder", "click", () => {
+        if (!isAdmin || cart.length === 0) return;
+        submitOrderToPending();
     });
 
     on("btnCheckout", "click", () => {
-        if (!isAdmin) return;
+        if (cart.length === 0) return;
+        if (!isAdmin) {
+            submitOrderToPending();
+            return;
+        }
         const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
         const grandTotal = subtotal + (subtotal * (appSettings.taxRate / 100)) + appSettings.serviceFee;
         const modalTotal = document.getElementById("modalTotal");
@@ -772,7 +903,7 @@ const initEventListeners = () => {
             if (e.target.value === 'QRIS') {
                 if (cashGroup) cashGroup.style.display = 'none';
                 if (qrisGroup) qrisGroup.style.display = 'block';
-                if (qrisImage) qrisImage.src = appSettings.qrisPath;
+                if (qrisImage) qrisImage.src = "pict/img/QRISBarcode.jpeg";
             } else {
                 if (cashGroup) cashGroup.style.display = 'flex';
                 if (qrisGroup) qrisGroup.style.display = 'none';
@@ -816,7 +947,10 @@ const initEventListeners = () => {
         if (payMethod === "Cash") {
             const cashInput = document.getElementById("cashAmount");
             paidAmount = (cashInput && parseFloat(cashInput.value)) || 0;
-            if (paidAmount < grandTotal) { alert("Jumlah uang tunai yang diterima kurang!"); return; }
+            if (paidAmount < grandTotal) {
+                showWebAlert("Jumlah uang tunai yang diterima kurang!", "Pembayaran Gagal", "error");
+                return;
+            }
             changeAmount = paidAmount - grandTotal;
         }
 
@@ -859,7 +993,6 @@ const initEventListeners = () => {
     });
 
     on("btnConfirmCustomBead", "click", () => {
-        if (!isAdmin) return;
         const priceSel = document.getElementById("beadVariantPrice");
         if (!selectedBeadProduct || !priceSel) return;
         const opt = priceSel.options[priceSel.selectedIndex];
@@ -899,11 +1032,6 @@ const initEventListeners = () => {
         });
     });
 
-    on("qrisImagePath", "input", (e) => {
-        const prev = document.getElementById("cfgQrisPreview");
-        if (prev) prev.src = e.target.value;
-    });
-
     on("btnSaveSettings", "click", () => {
         if (!isAdmin) return;
         const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
@@ -913,7 +1041,6 @@ const initEventListeners = () => {
         appSettings.phone = getVal("cfgPhone");
         appSettings.taxRate = parseFloat(getVal("cfgTaxRate")) || 0;
         appSettings.serviceFee = parseFloat(getVal("cfgServiceFee")) || 0;
-        appSettings.qrisPath = getVal("qrisImagePath");
         appSettings.receiptHeader = getVal("cfgReceiptHeader");
         appSettings.receiptFooter = getVal("cfgReceiptFooter");
         const ap = document.getElementById("cfgAutoPrint");
@@ -923,16 +1050,16 @@ const initEventListeners = () => {
         if (db) db.ref("sweet_memories/settings").set(appSettings);
         applySettingsToForm();
         updateCartUI();
-        alert("Pengaturan sistem berhasil disimpan!");
+        showWebAlert("Pengaturan sistem berhasil disimpan!", "Berhasil Disimpan", "success");
     });
 
     on("btnClearHistory", "click", () => {
         if (!isAdmin) return;
-        if (confirm("Hapus seluruh riwayat transaksi di semua perangkat?")) {
+        showWebConfirm("Hapus seluruh riwayat transaksi di semua perangkat?", "Hapus Semua Riwayat", () => {
             transactions = [];
             persistTransactions();
             syncAllViews();
-        }
+        });
     });
 
     on("btnBackupData", "click", () => {
@@ -947,7 +1074,7 @@ const initEventListeners = () => {
 
     on("btnExportExcel", "click", () => {
         if (transactions.length === 0) {
-            alert("Belum ada data transaksi untuk di-export!");
+            showWebAlert("Belum ada data transaksi untuk di-export!", "Data Kosong", "info");
             return;
         }
 
