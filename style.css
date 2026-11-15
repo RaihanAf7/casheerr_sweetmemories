@@ -190,6 +190,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 7px;
+    flex: 1;
 }
 
 .nav-link {
@@ -232,7 +233,37 @@ body {
 }
 
 /* ==========================================================================
-   3. MAIN CONTENT AREA & HEADER (TANPA BACKDROP-FILTER AGAR TIDAK LAG)
+   COPYRIGHT FOOTER DI SIDEBAR
+   ========================================================================== */
+.sidebar-copyright {
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border-color);
+    text-align: center;
+    white-space: normal;
+    line-height: 1.35;
+}
+
+.sidebar-copyright strong {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--accent-color);
+    font-weight: 700;
+}
+
+.sidebar-copyright small {
+    display: block;
+    font-size: 0.64rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.sidebar.collapsed .sidebar-copyright {
+    display: none;
+}
+
+/* ==========================================================================
+   3. MAIN CONTENT AREA & HEADER
    ========================================================================== */
 .main-content {
     display: flex;
@@ -1585,7 +1616,7 @@ input:checked + .slider:before {
     .sidebar {
         padding: 16px 6px;
     }
-    .sidebar .brand-text, .sidebar .nav-text {
+    .sidebar .brand-text, .sidebar .nav-text, .sidebar .sidebar-copyright {
         display: none;
     }
     .sidebar .nav-link {
@@ -1628,7 +1659,8 @@ input:checked + .slider:before {
     }
 
     .sidebar .brand-text,
-    .sidebar .nav-text {
+    .sidebar .nav-text,
+    .sidebar .sidebar-copyright {
         display: block !important;
         opacity: 1 !important;
         width: auto !important;
@@ -1647,15 +1679,79 @@ input:checked + .slider:before {
         transform: translate3d(245px, 0, 0);
     }
 
+    /* Header Mobile Proporsional 2 Baris Simetris */
+    .top-header {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .header-left-group,
+    .header-right {
+        display: contents;
+    }
+
     .mobile-toggle-btn {
+        grid-column: 1;
+        grid-row: 1;
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        font-size: 0.95rem;
     }
 
-    .top-header {
-        padding: 8px 10px;
-        gap: 8px;
+    .cashier-info {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: start;
+        padding: 3px 8px 3px 4px;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .cashier-info .avatar {
+        width: 24px;
+        height: 24px;
+    }
+
+    .cashier-details strong {
+        font-size: 0.72rem;
+    }
+
+    .status-online {
+        font-size: 0.6rem;
+        white-space: nowrap;
+    }
+
+    #btnAdminAuth {
+        grid-column: 3;
+        grid-row: 1;
+        justify-self: end;
+        padding: 6px 9px !important;
+        font-size: 0.68rem !important;
+        white-space: nowrap;
+    }
+
+    .search-box {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .search-box input {
+        padding: 8px 12px 8px 34px;
+        font-size: 0.78rem;
+    }
+
+    .search-icon {
+        left: 11px;
+        font-size: 0.8rem;
     }
 
     .date-now {
