@@ -261,7 +261,7 @@
                             </div>
                         </div>
 
-                        <!-- Tab 2: Pajak & Layanan (Tanpa QRIS) -->
+                        <!-- Tab 2: Pajak & Layanan -->
                         <div class="setting-panel" id="tab-payment">
                             <h3>Pajak & Biaya Layanan</h3>
                             <div class="form-grid">
@@ -292,7 +292,7 @@
                                     <div class="switch-group">
                                         <div>
                                             <strong style="font-size: 0.85rem;">Cetak Struk Otomatis</strong>
-                                            <p style="font-size: 0.75rem; color: var(--text-secondary);">Otomatis memunculkan dialog print setelah pembayaran selesai</p>
+                                            <p style="font-size: 0.75rem; color: var(--text-secondary);">Otomatis mencetak ke printer Bluetooth (atau dialog print) setelah pembayaran selesai</p>
                                         </div>
                                         <label class="toggle-switch">
                                             <input type="checkbox" id="cfgAutoPrint" checked>
@@ -384,7 +384,7 @@
          4. MODALS (PEMBAYARAN, CUSTOM MANIK-MANIK, STRUK, LOGIN ADMIN, POPUP WEB)
          ====================================================================== -->
     
-    <!-- Modal Pembayaran (Cash Only / Non-QRIS) -->
+    <!-- Modal Pembayaran -->
     <div class="modal-overlay" id="paymentModal">
         <div class="modal-card">
             <div class="modal-header">
@@ -465,7 +465,7 @@
         </div>
     </div>
 
-    <!-- Modal Struk Thermal -->
+    <!-- Modal Struk Thermal (Bluetooth & Print Sistem) -->
     <div class="modal-overlay" id="receiptModal">
         <div class="modal-card receipt-modal-card">
             <div class="modal-header">
@@ -503,9 +503,14 @@
                 </div>
             </div>
 
-            <button type="button" class="btn-confirm" id="btnPrintReceiptNow">
-                <i class="fa-solid fa-print"></i> Cetak Struk Sekarang
-            </button>
+            <div class="receipt-print-actions">
+                <button type="button" class="btn-confirm btn-bt-print" id="btnPrintBluetooth80">
+                    <i class="fa-brands fa-bluetooth-b"></i> Cetak Bluetooth
+                </button>
+                <button type="button" class="btn-secondary btn-sys-print" id="btnPrintReceiptNow">
+                    <i class="fa-solid fa-print"></i> Print Sistem
+                </button>
+            </div>
         </div>
     </div>
 
