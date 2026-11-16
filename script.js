@@ -40,10 +40,11 @@ let selectedBeadProduct = null;
 let btPrinterCharacteristic = null;
 
 // Jumlah karakter per baris printer thermal (48 untuk kertas lebar 80mm, 32 untuk kertas 58mm)
-const RECEIPT_LINE_WIDTH = 32;
+const RECEIPT_LINE_WIDTH = 48;
 
 let appSettings = {
     storeName: "Sweet Memories",
+    cashierName: "Joee",
     slogan: "Dibuat dengan rasa, dikenang selamanya..",
     address: "Jl. Pantura No.6, Kalodran, Kec. Walantaka, Kota Serang, Banten 42183",
     phone: "0853-1955-8384",
@@ -56,7 +57,7 @@ let appSettings = {
 
 const menuItems = [
     { id: 1, name: "Donat Jadoel", price: 3500, category: "makanan", img: "pict/img/Donat.png" },
-    { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/Bomboloni.png" },
+    { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/bomboloni.png" },
     { id: 3, name: "Soda Gembira", price: 12000, category: "minuman", img: "pict/img/sodagembira.jpg" },
     { id: 4, name: "Mango Sticky Rice", price: 15000, category: "makanan", img: "pict/img/mangostr.jpg" },
     { id: 5, name: "Kue Sus", price: 3500, category: "makanan", img: "pict/img/kuesus.png" },
@@ -128,7 +129,6 @@ const connectBluetoothPrinter = async () => {
     throw new Error("Port cetak Bluetooth printer tidak ditemukan.");
 };
 
-// Format baris kiri-kanan sesuai lebar kolom kertas thermal
 const formatReceiptLine = (left, right, width = RECEIPT_LINE_WIDTH) => {
     const l = String(left || "");
     const r = String(right || "");
@@ -139,7 +139,6 @@ const formatReceiptLine = (left, right, width = RECEIPT_LINE_WIDTH) => {
     return l + " ".repeat(spaceCount) + r + "\n";
 };
 
-// Bungkus teks panjang agar rapi menyesuaikan lebar kertas thermal
 const wrapReceiptText = (text, width = RECEIPT_LINE_WIDTH) => {
     const words = String(text || "").split(/\s+/);
     let lines = [];
@@ -182,6 +181,7 @@ const buildEscPosReceipt = (trx, width = RECEIPT_LINE_WIDTH) => {
 
     text += formatReceiptLine("No. Trx", trx.id, width);
     text += formatReceiptLine("Waktu", `${trx.date} ${trx.time}`, width);
+    text += formatReceiptLine("Kasir", trx.cashier || appSettings.cashierName || "Joee", width);
     text += formatReceiptLine("Pelanggan", trx.customer, width);
     text += formatReceiptLine("Tipe", trx.type, width);
     text += line;
@@ -233,7 +233,7 @@ const printReceiptBluetooth = async (trx) => {
 };
 
 // ==========================================================================
-// CUSTOM POP-UP NOTIFIKASI & KONFIRMASI DI DALAM WEB (AUTO-INJECT HTML)
+// CUSTOM POP-UP NOTIFIKASI & KONFIRMASI DI DALAM WEB
 // ==========================================================================
 const ensureWebAlertModal = () => {
     let modal = document.getElementById("webAlertModal");
@@ -261,7 +261,6 @@ const ensureWebAlertModal = () => {
 
 const showWebAlert = (message, title = "Informasi", type = "info") => {
     const modal = ensureWebAlertModal();
-
     const iconEl = document.getElementById("webAlertIcon");
     const titleEl = document.getElementById("webAlertTitle");
     const msgEl = document.getElementById("webAlertMessage");
@@ -290,7 +289,6 @@ const showWebAlert = (message, title = "Informasi", type = "info") => {
 
 const showWebConfirm = (message, title = "Konfirmasi", onConfirm) => {
     const modal = ensureWebAlertModal();
-
     const iconEl = document.getElementById("webAlertIcon");
     const titleEl = document.getElementById("webAlertTitle");
     const msgEl = document.getElementById("webAlertMessage");
@@ -314,9 +312,6 @@ const showWebConfirm = (message, title = "Konfirmasi", onConfirm) => {
     };
 };
 
-// ==========================================================================
-// COPYRIGHT FOOTER DI SIDEBAR
-// ==========================================================================
 const renderSidebarCopyright = () => {
     const sidebar = document.getElementById("sidebar");
     if (!sidebar || document.getElementById("sidebarCopyright")) return;
@@ -331,10 +326,13 @@ const renderSidebarCopyright = () => {
 };
 
 // ==========================================================================
-// KONTROL AKSES ADMIN (TOLAK LAPORAN PENJUALAN & PENGATURAN DI MODE TAMU)
+// KONTROL AKSES ADMIN & TAMPILAN KASIR
 // ==========================================================================
 const updateAdminUI = () => {
     const btnAuth = document.getElementById("btnAdminAuth");
+    const cashierInfo = document.querySelector(".cashier-info");
+    const headerCashierEl = document.getElementById("headerCashierName");
+
     if (btnAuth) {
         if (isAdmin) {
             btnAuth.innerHTML = `<i class="fa-solid fa-lock-open"></i> Admin Aktif (Logout)`;
@@ -347,7 +345,14 @@ const updateAdminUI = () => {
         }
     }
 
-    // Sembunyikan menu Laporan Penjualan dan Pengaturan dari sidebar saat Mode Tamu
+    // Sembunyikan informasi kasir di Mode Tamu, tampilkan hanya saat Mode Admin
+    if (cashierInfo) {
+        cashierInfo.style.display = isAdmin ? "flex" : "none";
+    }
+    if (headerCashierEl && isAdmin) {
+        headerCashierEl.textContent = `Kasir: ${appSettings.cashierName || "Joee"}`;
+    }
+
     const restrictedNavs = [
         '.nav-link[data-page="report-page"]',
         '.nav-link[data-page="settings-page"]'
@@ -357,7 +362,6 @@ const updateAdminUI = () => {
         if (navEl) navEl.style.display = isAdmin ? "" : "none";
     });
 
-    // Jika sedang di halaman Laporan Penjualan atau Pengaturan lalu logout ke Mode Tamu, arahkan ke Menu Utama
     const reportPage = document.getElementById("report-page");
     const settingsPage = document.getElementById("settings-page");
     if (!isAdmin && ((reportPage && reportPage.classList.contains("active")) || (settingsPage && settingsPage.classList.contains("active")))) {
@@ -455,6 +459,9 @@ const initRealtimeCloudSync = () => {
         const cloudSettings = snapshot.val();
         if (cloudSettings) {
             appSettings = { ...appSettings, ...cloudSettings };
+            if (!appSettings.cashierName || appSettings.cashierName === "Admin") {
+                appSettings.cashierName = "Joee";
+            }
             localStorage.setItem("sweet_memories_settings", JSON.stringify(appSettings));
             applySettingsToForm();
             updateCartUI();
@@ -465,6 +472,7 @@ const initRealtimeCloudSync = () => {
 const applySettingsToForm = () => {
     const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
     setVal("cfgStoreName", appSettings.storeName);
+    setVal("cfgCashierName", appSettings.cashierName || "Joee");
     setVal("cfgSlogan", appSettings.slogan);
     setVal("cfgAddress", appSettings.address);
     setVal("cfgPhone", appSettings.phone);
@@ -472,6 +480,11 @@ const applySettingsToForm = () => {
     setVal("cfgServiceFee", appSettings.serviceFee);
     setVal("cfgReceiptHeader", appSettings.receiptHeader);
     setVal("cfgReceiptFooter", appSettings.receiptFooter);
+
+    const headerCashierEl = document.getElementById("headerCashierName");
+    if (headerCashierEl) {
+        headerCashierEl.textContent = `Kasir: ${appSettings.cashierName || "Joee"}`;
+    }
 
     const autoPrintEl = document.getElementById("cfgAutoPrint");
     if (autoPrintEl) autoPrintEl.checked = appSettings.autoPrint;
@@ -483,7 +496,12 @@ const applySettingsToForm = () => {
 const loadSettings = () => {
     try {
         const savedConfig = localStorage.getItem("sweet_memories_settings");
-        if (savedConfig) appSettings = { ...appSettings, ...JSON.parse(savedConfig) };
+        if (savedConfig) {
+            appSettings = { ...appSettings, ...JSON.parse(savedConfig) };
+            if (!appSettings.cashierName || appSettings.cashierName === "Admin") {
+                appSettings.cashierName = "Joee";
+            }
+        }
     } catch (e) {}
 
     try {
@@ -849,6 +867,7 @@ const showReceiptModal = (trx) => {
 
     const now = new Date();
     setText("rcDateTime", `${now.toLocaleDateString('id-ID')} ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`);
+    setText("rcCashierName", trx.cashier || appSettings.cashierName || "Joee");
     setText("rcCustomer", trx.customer);
     setText("rcOrderType", trx.type);
 
@@ -891,7 +910,6 @@ const closeMobileDrawers = () => {
 };
 
 const switchToPage = (targetPage) => {
-    // Tolak akses Laporan Penjualan dan Pengaturan jika Mode Tamu
     if ((targetPage === "settings-page" || targetPage === "report-page") && !isAdmin) {
         showWebAlert("Akses ditolak! Halaman ini hanya dapat dibuka oleh Admin.", "Akses Ditolak", "error");
         return;
@@ -1149,6 +1167,7 @@ const initEventListeners = () => {
             id: "SM-" + Date.now().toString().slice(-4),
             time: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
             date: now.toLocaleDateString('id-ID'),
+            cashier: appSettings.cashierName || "Joee",
             customer,
             type: currentOrderType,
             method: payMethod,
@@ -1235,6 +1254,7 @@ const initEventListeners = () => {
         if (!isAdmin) return;
         const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
         appSettings.storeName = getVal("cfgStoreName");
+        appSettings.cashierName = getVal("cfgCashierName").trim() || "Joee";
         appSettings.slogan = getVal("cfgSlogan");
         appSettings.address = getVal("cfgAddress");
         appSettings.phone = getVal("cfgPhone");
@@ -1430,7 +1450,6 @@ const initEventListeners = () => {
     });
 };
 
-// Jalankan setelah DOM siap sepenuhnya
 document.addEventListener("DOMContentLoaded", () => {
     renderSidebarCopyright();
     initEventListeners();
