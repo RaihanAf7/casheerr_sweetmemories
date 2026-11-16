@@ -82,7 +82,7 @@
                     <div class="cashier-info">
                         <img src="pict/logo/LOGO.png" alt="Kasir" class="avatar">
                         <div class="cashier-details">
-                            <strong>Kasir 1</strong>
+                            <strong id="headerCashierName">Kasir: Joee</strong>
                             <span class="status-online" id="syncStatusText">
                                 <i class="fa-solid fa-circle"></i> Lokal
                             </span>
@@ -247,10 +247,14 @@
                                     <input type="text" id="cfgStoreName" class="input-meta" value="Sweet Memories">
                                 </div>
                                 <div class="form-group">
+                                    <label>Nama Kasir</label>
+                                    <input type="text" id="cfgCashierName" class="input-meta" value="Joee">
+                                </div>
+                                <div class="form-group">
                                     <label>Nomor Telepon / WhatsApp</label>
                                     <input type="text" id="cfgPhone" class="input-meta" value="0853-1955-8384">
                                 </div>
-                                <div class="form-group full-width">
+                                <div class="form-group">
                                     <label>Slogan Toko</label>
                                     <input type="text" id="cfgSlogan" class="input-meta" value="Dibuat dengan rasa, dikenang selamanya..">
                                 </div>
@@ -484,6 +488,7 @@
                 <div class="receipt-info">
                     <div><span>No. Trx:</span><span id="rcTrxId">-</span></div>
                     <div><span>Waktu:</span><span id="rcDateTime">-</span></div>
+                    <div><span>Kasir:</span><span id="rcCashierName">Joee</span></div>
                     <div><span>Pelanggan:</span><span id="rcCustomer">-</span></div>
                     <div><span>Tipe:</span><span id="rcOrderType">-</span></div>
                 </div>
