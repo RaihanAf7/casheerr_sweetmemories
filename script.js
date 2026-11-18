@@ -466,8 +466,8 @@ const renderSidebarCopyright = () => {
     footer.className = "sidebar-copyright";
     footer.id = "sidebarCopyright";
     footer.innerHTML = `
-        <strong>&copy; Copyright 2026 by Raihan.</strong>
-        <small>Teknologi &amp; Media Informasi</small>
+        <strong>&copy; Copyright 2026 by Raihan & Kelompok 3 05SISP002.</strong>
+        <small>Teknologi &amp; Media Promosi</small>
     `;
     sidebar.appendChild(footer);
 };
