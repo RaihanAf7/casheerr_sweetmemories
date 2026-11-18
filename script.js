@@ -1,1461 +1,1956 @@
-// ==========================================================================
-// KONFIGURASI FIREBASE REALTIME DATABASE
-// ==========================================================================
-const firebaseConfig = {
-    apiKey: "AIzaSyBS1lv6GildLilRzjXxaIyAZCO9XO2Dd-g",
-    authDomain: "sweet-memories-kasir.firebaseapp.com",
-    databaseURL: "https://sweet-memories-kasir-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "sweet-memories-kasir",
-    storageBucket: "sweet-memories-kasir.firebasestorage.app",
-    messagingSenderId: "50808003358",
-    appId: "1:50808003358:web:9eaccbcb444bf3c638470f",
-    measurementId: "G-7CSJPB1RCD"
-};
-
-let db = null;
-let auth = null;
-let isAdmin = false;
-
-try {
-    if (typeof firebase !== "undefined") {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.database();
-        if (firebase.auth) {
-            auth = firebase.auth();
-        }
-    }
-} catch (err) {
-    console.warn("Firebase offline/skip:", err);
+/* ==========================================================================
+1. VARIABLES & GLOBAL RESET (VINTAGE WARM CREAM & SOFT COFFEE THEME)
+   ========================================================================== */
+:root {
+    --bg-main: #FAF6F1;
+    --bg-surface: #FFFFFF;
+    --accent-color: #4A2E2B;
+    --accent-hover: #38211F;
+    --accent-light: #9E5E4E;
+    --accent-subtle: #F4EAE1;
+    --text-primary: #2D1916;
+    --text-secondary: #7D645E;
+    --border-color: #E6D9CE;
+    --success-color: #4A7C59;
+    --danger-color: #C04A4A;
+    --danger-subtle: rgba(192, 74, 74, 0.12);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --shadow-xs: 0 1px 3px rgba(74, 46, 43, 0.04);
+    --shadow-sm: 0 3px 10px rgba(74, 46, 43, 0.05);
+    --shadow-lg: 0 10px 28px rgba(45, 25, 22, 0.14);
+    --shadow-accent: 0 4px 12px rgba(74, 46, 43, 0.2);
+    --transition-fast: all 0.16s ease-out;
 }
 
-// State Management
-let cart = [];
-let transactions = [];
-let pendingOrders = [];
-let activeCategory = "all";
-let searchQuery = "";
-let currentOrderType = "Mahasiswa";
-let currentReceiptData = null;
-let selectedBeadProduct = null;
-let btPrinterCharacteristic = null;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+}
 
-// Jumlah karakter per baris printer thermal (48 untuk kertas lebar 80mm, 32 untuk kertas 58mm)
-const RECEIPT_LINE_WIDTH = 48;
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
 
-let appSettings = {
-    storeName: "Sweet Memories",
-    cashierName: "Joee",
-    slogan: "Dibuat dengan rasa, dikenang selamanya..",
-    address: "Jl. Pantura No.6, Kalodran, Kec. Walantaka, Kota Serang, Banten 42183",
-    phone: "0853-1955-8384",
-    taxRate: 0,
-    serviceFee: 0,
-    receiptHeader: "Selamat Datang di Sweet Memories!",
-    receiptFooter: "Terima kasih atas kunjungannya, datang kembali ya! ♥",
-    autoPrint: true
-};
+button, input, select, textarea {
+    font-family: 'Poppins', sans-serif;
+}
 
-const menuItems = [
-    { id: 1, name: "Donat Jadoel", price: 3500, category: "makanan", img: "pict/img/Donat.png" },
-    { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/Bomboloni.png" },
-    { id: 3, name: "Soda Gembira", price: 12000, category: "minuman", img: "pict/img/sodagembira.jpg" },
-    { id: 4, name: "Mango Sticky Rice", price: 15000, category: "makanan", img: "pict/img/mangostr.jpg" },
-    { id: 5, name: "Kue Sus", price: 3500, category: "makanan", img: "pict/img/kuesus.png" },
-    { 
-        id: 6, 
-        name: "Manik - Manik", 
-        price: 5000, 
-        category: "aksesoris", 
-        img: "pict/img/manikmanik.png",
-        isCustom: true 
+@keyframes popIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pageFadeSlide {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ==========================================================================
+2. APP LAYOUT & SIDEBAR NAVIGATION
+   ========================================================================== */
+.app-container {
+    display: grid;
+    grid-template-columns: 235px 1fr 315px;
+    min-height: 100vh;
+    width: 100%;
+    transition: grid-template-columns 0.2s ease-out;
+}
+
+.app-container.sidebar-collapsed {
+    grid-template-columns: 76px 1fr 315px;
+}
+
+.sidebar {
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border-color);
+    padding: 18px 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 6px 4px 14px;
+    border-bottom: 1px dashed var(--border-color);
+    position: relative;
+}
+
+.brand-logo {
+    width: 42px;
+    height: 42px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 2px solid #FFF9F2;
+    box-shadow: 0 0 0 2px var(--border-color), var(--shadow-xs);
+    flex-shrink: 0;
+}
+
+.brand-text {
+    overflow: hidden;
+}
+
+.sidebar.collapsed .brand-text {
+    display: none;
+}
+
+.brand-text h2 {
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--accent-color);
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+}
+
+.brand-text small {
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+}
+
+.toggle-btn {
+    position: absolute;
+    right: -25px;
+    top: 42%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    color: var(--accent-color);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-xs);
+    transition: var(--transition-fast);
+    z-index: 60;
+}
+
+.toggle-btn:hover {
+    background: var(--accent-color);
+    color: #FFF9F2;
+}
+
+.sidebar.collapsed #toggleIcon {
+    transform: rotate(180deg);
+}
+
+.mobile-toggle-btn {
+    display: none;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 7px 10px;
+    font-size: 1.1rem;
+    color: var(--accent-color);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.nav-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    flex: 1;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 13px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: var(--transition-fast);
+    position: relative;
+}
+
+.nav-link i {
+    font-size: 1.05rem;
+    flex-shrink: 0;
+}
+
+.nav-link:hover {
+    background: var(--accent-subtle);
+    color: var(--accent-color);
+}
+
+.nav-link.active {
+    background: var(--accent-color);
+    color: #FFF9F2;
+    box-shadow: var(--shadow-accent);
+}
+
+.sidebar.collapsed .nav-text {
+    display: none;
+}
+
+.sidebar.collapsed .nav-link {
+    justify-content: center;
+    padding: 11px;
+}
+
+/* ==========================================================================
+   COPYRIGHT FOOTER DI SIDEBAR
+   ========================================================================== */
+.sidebar-copyright {
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border-color);
+    text-align: center;
+    white-space: normal;
+    line-height: 1.35;
+}
+
+.sidebar-copyright strong {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--accent-color);
+    font-weight: 700;
+}
+
+.sidebar-copyright small {
+    display: block;
+    font-size: 0.64rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.sidebar.collapsed .sidebar-copyright {
+    display: none;
+}
+
+/* ==========================================================================
+3. MAIN CONTENT AREA & HEADER
+   ========================================================================== */
+.main-content {
+    display: flex;
+    flex-direction: column;
+    padding: 18px 20px;
+    gap: 16px;
+    overflow-y: auto;
+    height: 100vh;
+}
+
+.top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    background: #FFFFFF;
+    padding: 10px 14px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    position: sticky;
+    top: 0;
+    z-index: 30;
+}
+
+.header-left-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.search-box {
+    position: relative;
+    width: 100%;
+    max-width: 300px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 9px 14px 9px 38px;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    outline: none;
+    font-size: 0.82rem;
+    transition: var(--transition-fast);
+}
+
+.search-box input:focus {
+    background: var(--bg-surface);
+    border-color: var(--accent-light);
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.date-now {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--bg-main);
+    padding: 6px 11px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.cashier-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-main);
+    padding: 4px 12px 4px 5px;
+    border-radius: 30px;
+    border: 1px solid var(--border-color);
+}
+
+.avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+}
+
+.cashier-details {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.15;
+}
+
+.cashier-details strong {
+    font-size: 0.8rem;
+    color: var(--text-primary);
+}
+
+.status-online {
+    color: var(--success-color);
+    font-size: 0.65rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.status-online i {
+    font-size: 0.42rem;
+}
+
+/* ==========================================================================
+4. CATEGORY PILLS & ELEVATED MENU CARDS
+   ========================================================================== */
+.categories {
+    display: flex;
+    gap: 9px;
+    overflow-x: auto;
+    padding: 2px 2px 6px;
+}
+
+.cat-btn {
+    padding: 8px 15px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.82rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+    transition: var(--transition-fast);
+    box-shadow: var(--shadow-xs);
+}
+
+.cat-btn:hover {
+    color: var(--accent-color);
+    border-color: var(--accent-light);
+    background: var(--accent-subtle);
+}
+
+.cat-btn.active {
+    background: var(--accent-color);
+    color: #FFF9F2;
+    border-color: var(--accent-color);
+}
+
+.menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
+    gap: 15px;
+    padding-bottom: 12px;
+}
+
+.menu-card {
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.14s ease-out, border-color 0.15s ease;
+    box-shadow: var(--shadow-sm);
+    transform: translateZ(0);
+}
+
+.menu-card::after {
+    content: "+";
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent-subtle);
+    color: var(--accent-color);
+    font-weight: 700;
+    font-size: 1rem;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border-color);
+}
+
+.menu-card:hover {
+    transform: translate3d(0, -3px, 0);
+    border-color: var(--accent-light);
+}
+
+.menu-card:hover::after {
+    background: var(--accent-color);
+    color: #FFF9F2;
+    border-color: var(--accent-color);
+}
+
+.menu-card:active {
+    transform: scale(0.98);
+}
+
+.menu-img {
+    width: 100%;
+    height: 112px;
+    object-fit: cover;
+    border-radius: var(--radius-md);
+    margin-bottom: 10px;
+    background: var(--bg-main);
+}
+
+.menu-info {
+    padding-right: 28px;
+}
+
+.menu-info h4 {
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    line-height: 1.25;
+}
+
+.menu-price {
+    color: var(--accent-light);
+    font-weight: 700;
+    font-size: 0.88rem;
+}
+
+/* ==========================================================================
+5. CART SIDEBAR & POS CHECKOUT
+   ========================================================================== */
+.cart-section {
+    background: #FFFFFF;
+    border-left: 1px solid var(--border-color);
+    padding: 18px 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 100vh;
+    overflow-y: auto;
+    box-shadow: -2px 0 12px rgba(74, 46, 43, 0.03);
+}
+
+.cart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--border-color);
+}
+
+.cart-header h3 {
+    color: var(--accent-color);
+    font-size: 0.98rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.mobile-close-cart {
+    display: none;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    place-items: center;
+    cursor: pointer;
+}
+
+.btn-clear {
+    background: var(--danger-subtle);
+    border: 1px solid transparent;
+    color: var(--danger-color);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+}
+
+.btn-clear:hover {
+    background: var(--danger-color);
+    color: #FFF9F2;
+}
+
+.order-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.input-meta {
+    width: 100%;
+    padding: 9px 11px;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    outline: none;
+    font-size: 0.82rem;
+    transition: var(--transition-fast);
+}
+
+.input-meta:focus {
+    background: var(--bg-surface);
+    border-color: var(--accent-color);
+}
+
+.order-type-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    background: var(--bg-main);
+    padding: 4px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.type-btn {
+    background: transparent;
+    border: none;
+    padding: 7px 4px;
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.type-btn.active {
+    background: var(--bg-surface);
+    color: var(--accent-color);
+    font-weight: 700;
+    box-shadow: var(--shadow-xs);
+}
+
+.cart-items {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 2px;
+    min-height: 120px;
+}
+
+.cart-empty {
+    text-align: center;
+    color: var(--text-secondary);
+    margin: auto;
+    padding: 20px;
+    background: var(--bg-main);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-lg);
+    width: 100%;
+}
+
+.cart-empty i {
+    font-size: 2.1rem;
+    margin-bottom: 8px;
+    opacity: 0.45;
+    color: var(--accent-light);
+}
+
+.cart-empty p {
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+.cart-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-surface);
+    padding: 9px 11px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-xs);
+    animation: popIn 0.14s ease-out;
+}
+
+.cart-item-info h5 {
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.cart-item-info small {
+    color: var(--accent-light);
+    font-weight: 700;
+    font-size: 0.78rem;
+}
+
+.cart-item-controls {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--bg-main);
+    padding: 3px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+}
+
+.cart-item-controls span {
+    font-size: 0.8rem;
+    font-weight: 700;
+    min-width: 16px;
+    text-align: center;
+    color: var(--accent-color);
+}
+
+.btn-qty {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    color: var(--accent-color);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: var(--transition-fast);
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+.btn-qty:hover {
+    background: var(--accent-color);
+    color: #FFF9F2;
+    border-color: var(--accent-color);
+}
+
+.cart-summary {
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.total-row {
+    color: var(--accent-color);
+    font-weight: 800;
+    font-size: 1.08rem;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border-color);
+}
+
+.btn-checkout {
+    width: 100%;
+    padding: 12px 14px;
+    background: var(--accent-color);
+    border: none;
+    border-radius: var(--radius-md);
+    color: #FFF9F2;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: var(--shadow-accent);
+}
+
+.btn-checkout:hover:not(:disabled) {
+    background: var(--accent-hover);
+    transform: translate3d(0, -1px, 0);
+}
+
+.btn-checkout:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* ==========================================================================
+6. PAGES, STAT CARDS & TABLES
+   ========================================================================== */
+.page-content {
+    display: none;
+}
+
+.page-content.active {
+    display: block;
+    animation: pageFadeSlide 0.16s ease-out;
+}
+
+.section-title h2 {
+    color: var(--accent-color);
+    font-size: 1.18rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-title p {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-top: 2px;
+}
+
+.section-header-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-top: 16px;
+}
+
+.stat-card {
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: var(--shadow-sm);
+}
+
+.stat-icon {
+    font-size: 1.25rem;
+    color: var(--accent-color);
+    background: var(--accent-subtle);
+    border: 1px solid var(--border-color);
+    padding: 12px;
+    border-radius: var(--radius-md);
+}
+
+.stat-card small {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.76rem;
+}
+
+.stat-card h3 {
+    color: var(--accent-color);
+    font-size: 1.12rem;
+    margin-top: 2px;
+}
+
+.table-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-top: 14px;
+    box-shadow: var(--shadow-sm);
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 6px;
+}
+
+.data-table th, .data-table td {
+    padding: 11px 13px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+.data-table th {
+    color: var(--accent-color);
+    font-weight: 700;
+    background: var(--bg-main);
+}
+
+.text-center {
+    text-align: center !important;
+    color: var(--text-secondary);
+}
+
+.btn-action-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-print-trx {
+    padding: 6px 10px;
+    cursor: pointer;
+    background: var(--accent-subtle);
+    color: var(--accent-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.76rem;
+}
+
+.btn-print-trx:hover {
+    background: var(--accent-color);
+    color: #FFF9F2;
+}
+
+.btn-delete-trx {
+    padding: 6px 9px;
+    cursor: pointer;
+    background: var(--danger-subtle);
+    color: var(--danger-color);
+    border: 1px solid rgba(192, 74, 74, 0.3);
+    border-radius: var(--radius-sm);
+    font-size: 0.76rem;
+}
+
+.btn-delete-trx:hover {
+    background: var(--danger-color);
+    color: #ffffff;
+}
+
+.btn-excel {
+    background: #217346;
+    color: #fff;
+    border: none;
+    padding: 9px 15px;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.82rem;
+}
+
+/* ==========================================================================
+7. MODAL & SETTINGS (RINGAN & POP-UP NOTIFIKASI WEB)
+   ========================================================================== */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(45, 25, 22, 0.55);
+    display: grid;
+    place-items: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease-out, visibility 0.15s ease-out;
+    z-index: 1000;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+#webAlertModal {
+    z-index: 1200;
+}
+
+.modal-card {
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    width: 92%;
+    max-width: 410px;
+    padding: 20px;
+    transform: scale(0.96);
+    transition: transform 0.15s ease-out;
+    box-shadow: var(--shadow-lg);
+}
+
+.modal-overlay.active .modal-card {
+    transform: scale(1);
+}
+
+.web-alert-card {
+    max-width: 370px;
+    text-align: center;
+    padding: 24px 22px;
+}
+
+.web-alert-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    margin: 0 auto 12px;
+    display: grid;
+    place-items: center;
+    font-size: 1.5rem;
+    background: var(--accent-subtle);
+    color: var(--accent-color);
+}
+
+.web-alert-icon.success {
+    background: rgba(74, 124, 89, 0.14);
+    color: var(--success-color);
+}
+
+.web-alert-icon.error {
+    background: var(--danger-subtle);
+    color: var(--danger-color);
+}
+
+.web-alert-card h3 {
+    color: var(--accent-color);
+    font-size: 1.08rem;
+    margin-bottom: 6px;
+}
+
+.web-alert-card p {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.45;
+    margin-bottom: 18px;
+}
+
+.web-alert-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.web-alert-actions button {
+    flex: 1;
+    justify-content: center;
+    text-align: center;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--border-color);
+}
+
+.modal-header h3 {
+    color: var(--accent-color);
+    font-size: 1.05rem;
+}
+
+.modal-close {
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+}
+
+.payment-total {
+    text-align: center;
+    background: var(--accent-subtle);
+    padding: 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    margin-bottom: 14px;
+}
+
+.payment-total h2 {
+    color: var(--accent-color);
+    font-size: 1.45rem;
+    margin-top: 2px;
+}
+
+.payment-methods {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.pay-method {
+    border: 1.5px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    background: var(--bg-surface);
+}
+
+.pay-method input {
+    display: none;
+}
+
+.pay-method.active {
+    border-color: var(--accent-color);
+    background: var(--accent-subtle);
+    color: var(--accent-color);
+    font-weight: 700;
+}
+
+.cash-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.cash-input-group input {
+    padding: 10px;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 0.94rem;
+    font-weight: 600;
+    outline: none;
+}
+
+.quick-cash {
+    display: flex;
+    gap: 7px;
+}
+
+.btn-quick {
+    flex: 1;
+    padding: 7px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    color: var(--accent-color);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.change-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    margin-top: 4px;
+    padding: 8px 10px;
+    background: var(--bg-main);
+    border-radius: var(--radius-sm);
+}
+
+.change-info strong {
+    color: var(--success-color);
+}
+
+.btn-confirm {
+    width: 100%;
+    padding: 12px;
+    margin-top: 12px;
+    background: var(--accent-color);
+    border: none;
+    border-radius: var(--radius-md);
+    color: #FFF9F2;
+    font-weight: 700;
+    font-size: 0.92rem;
+    cursor: pointer;
+}
+
+.btn-confirm:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--text-secondary);
+}
+
+.settings-layout {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 18px;
+    margin-top: 16px;
+}
+
+.settings-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    background: var(--bg-surface);
+    padding: 10px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    height: fit-content;
+}
+
+.setting-tab {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 11px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.82rem;
+    cursor: pointer;
+    text-align: left;
+}
+
+.setting-tab.active {
+    background: var(--accent-color);
+    color: #FFF9F2;
+}
+
+.settings-content {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+}
+
+.setting-panel {
+    display: none;
+}
+
+.setting-panel.active {
+    display: block;
+}
+
+.setting-panel h3 {
+    color: var(--accent-color);
+    font-size: 1rem;
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed var(--border-color);
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.switch-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-main);
+    padding: 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background-color: var(--border-color);
+    transition: background-color 0.16s ease;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: transform 0.16s ease;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: var(--accent-color);
+}
+
+input:checked + .slider:before {
+    transform: translateX(20px);
+}
+
+.btn-save-settings {
+    background: var(--accent-color);
+    color: #FFF9F2;
+    border: none;
+    padding: 9px 16px;
+    border-radius: var(--radius-md);
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.84rem;
+}
+
+.action-buttons-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 310px;
+}
+
+.btn-secondary {
+    background: var(--bg-main);
+    color: var(--accent-color);
+    border: 1px solid var(--border-color);
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.82rem;
+}
+
+.btn-danger-outline {
+    background: var(--danger-subtle);
+    color: var(--danger-color);
+    border: 1px solid rgba(192, 74, 74, 0.35);
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.82rem;
+}
+
+/* ==========================================================================
+8. STRUK THERMAL PRINT (80x80MM BLUETOOTH & PRINT SISTEM)
+   ========================================================================== */
+.receipt-modal-card {
+    max-width: 360px;
+}
+
+.thermal-receipt {
+    background: #fff;
+    color: #000;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 11px;
+    padding: 12px 10px;
+    border: 1px dashed #ccc;
+    border-radius: 4px;
+    width: 100%;
+    max-width: 80mm;
+    margin: 0 auto;
+}
+
+.receipt-header {
+    text-align: center;
+    margin-bottom: 6px;
+}
+
+.receipt-header h4 {
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 2px;
+}
+
+.receipt-header p {
+    font-size: 10px;
+    margin: 1px 0;
+}
+
+.receipt-divider {
+    text-align: center;
+    font-weight: bold;
+    margin: 4px 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.receipt-info div {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+}
+
+.rc-item {
+    margin: 4px 0;
+}
+
+.rc-item-title {
+    font-weight: bold;
+    font-size: 10px;
+}
+
+.rc-item-calc {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    padding-left: 6px;
+}
+
+.rc-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    margin: 2px 0;
+}
+
+.rc-row.bold {
+    font-weight: bold;
+}
+
+.rc-row.grand {
+    font-size: 11px;
+    margin: 4px 0;
+    border-top: 1px dashed #000;
+    border-bottom: 1px dashed #000;
+    padding: 2px 0;
+}
+
+.receipt-footer {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 10px;
+}
+
+.receipt-print-actions {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.btn-bt-print {
+    margin-top: 0;
+    background: var(--success-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 11px 10px;
+    font-size: 0.84rem;
+}
+
+.btn-sys-print {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-align: center;
+    padding: 11px 10px;
+    font-size: 0.84rem;
+}
+
+@media print {
+    @page {
+        size: 80mm auto;
+        margin: 0 !important;
     }
-];
+    html, body {
+        width: 72mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+    body > *:not(#receiptModal) {
+        display: none !important;
+    }
+    #receiptModal {
+        position: static !important;
+        display: block !important;
+        background: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    .receipt-modal-card {
+        position: static !important;
+        display: block !important;
+        width: 72mm !important;
+        max-width: 72mm !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }
+    .receipt-modal-card .modal-header,
+    .receipt-print-actions {
+        display: none !important;
+    }
+    #thermalReceiptContent {
+        position: static !important;
+        display: block !important;
+        width: 70mm !important;
+        max-width: 70mm !important;
+        margin: 0 !important;
+        padding: 2mm 1mm !important;
+        border: none !important;
+        box-shadow: none !important;
+        font-size: 11px !important;
+        line-height: 1.3 !important;
+        box-sizing: border-box !important;
+    }
+}
 
-const beadVariants = {
-    "Gelang": [
-        { name: "Gelang Simple", price: 10000 },
-        { name: "Gelang Standard", price: 15000 },
-        { name: "Gelang Premium / Charm", price: 20000 }
-    ],
-    "Kalung": [
-        { name: "Kalung Choker", price: 18000 },
-        { name: "Kalung Standard", price: 25000 },
-        { name: "Kalung Layered / Full Pearl", price: 35000 }
-    ],
-    "Cincin": [
-        { name: "Cincin Manik Polos", price: 5000 },
-        { name: "Cincin Custom Bunga/Karakter", price: 8000 }
-    ]
-};
+/* ==========================================================================
+9. FITUR ANTREAN / PESANAN PENDING
+   ========================================================================== */
+.nav-badge {
+    margin-left: auto;
+    background: var(--danger-color);
+    color: #ffffff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 12px;
+    line-height: 1.2;
+}
 
-const formatRupiah = (number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(number || 0);
+.nav-link.active .nav-badge {
+    background: #FFF9F2;
+    color: var(--accent-color);
+}
 
-// ==========================================================================
-// CETAK LANGSUNG KE PRINTER THERMAL BLUETOOTH (ESC/POS)
-// ==========================================================================
-const connectBluetoothPrinter = async () => {
-    if (!navigator.bluetooth) {
-        throw new Error("Browser ini tidak mendukung Bluetooth langsung. Gunakan Google Chrome di Android/Windows.");
+.sidebar.collapsed .nav-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    padding: 1px 5px;
+    font-size: 0.62rem;
+}
+
+.cart-actions-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+}
+
+.btn-hold {
+    padding: 11px 13px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--accent-color);
+    font-weight: 700;
+    font-size: 0.84rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-hold:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.pending-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(275px, 1fr));
+    gap: 15px;
+    margin-top: 16px;
+}
+
+.pending-card {
+    background: #FFFFFF;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.pending-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 9px;
+}
+
+.pending-card-header h4 {
+    color: var(--accent-color);
+    font-size: 0.96rem;
+}
+
+.pending-badge-type {
+    background: var(--accent-subtle);
+    color: var(--accent-color);
+    border: 1px solid var(--border-color);
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.pending-items-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+}
+
+.pending-items-list li {
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 4px;
+    border-bottom: 1px dotted rgba(239, 230, 220, 0.8);
+}
+
+.pending-card-footer {
+    border-top: 1px dashed var(--border-color);
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.pending-total-row {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 800;
+    color: var(--accent-color);
+    font-size: 0.96rem;
+}
+
+.pending-btn-group {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+}
+
+.btn-resume-pending {
+    padding: 9px 12px;
+    background: var(--accent-color);
+    color: #FFF9F2;
+    border: none;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+/* ==========================================================================
+10. MEDIA QUERIES UNTUK TABLET & HP (MOBILE RESPONSIVE)
+   ========================================================================== */
+.mobile-cart-fab {
+    display: none;
+}
+
+.mobile-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(62, 36, 33, 0.45);
+    z-index: 80;
+}
+
+.mobile-backdrop.active {
+    display: block;
+}
+
+@media (max-width: 1024px) and (min-width: 769px) {
+    .app-container,
+    .app-container.sidebar-collapsed {
+        grid-template-columns: 70px 1fr 280px;
+    }
+    .sidebar {
+        padding: 16px 6px;
+    }
+    .sidebar .brand-text, .sidebar .nav-text, .sidebar .sidebar-copyright {
+        display: none;
+    }
+    .sidebar .nav-link {
+        justify-content: center;
+        padding: 10px 4px;
+    }
+    .cart-section {
+        padding: 14px 11px;
+    }
+    .type-btn {
+        font-size: 0.68rem;
+        padding: 5px 2px;
+    }
+    .menu-grid {
+        grid-template-columns: repeat(auto-fill, minmax(134px, 1fr));
+    }
+    .settings-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .app-container,
+    .app-container.sidebar-collapsed {
+        grid-template-columns: 1fr !important;
+        width: 100vw;
+        overflow-x: hidden;
     }
 
-    if (btPrinterCharacteristic && btPrinterCharacteristic.service && btPrinterCharacteristic.service.device.gatt.connected) {
-        return btPrinterCharacteristic;
+    .sidebar {
+        position: fixed;
+        left: -245px;
+        top: 0;
+        bottom: 0;
+        width: 230px;
+        padding: 20px 14px;
+        z-index: 95;
+        box-shadow: var(--shadow-lg);
+        transition: transform 0.18s ease-out;
     }
 
-    const device = await navigator.bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: [
-            "000018f0-0000-1000-8000-00805f9b34fb",
-            "0000ff00-0000-1000-8000-00805f9b34fb",
-            "49535343-fe7d-4ae5-8fa9-9fafd205e455",
-            "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
-            "0000ae30-0000-1000-8000-00805f9b34fb"
-        ]
-    });
-
-    const server = await device.gatt.connect();
-    const services = await server.getPrimaryServices();
-
-    for (const service of services) {
-        const characteristics = await service.getCharacteristics();
-        for (const char of characteristics) {
-            if (char.properties.write || char.properties.writeWithoutResponse) {
-                btPrinterCharacteristic = char;
-                return char;
-            }
-        }
+    .sidebar .brand-text,
+    .sidebar .nav-text,
+    .sidebar .sidebar-copyright {
+        display: block !important;
+        opacity: 1 !important;
+        width: auto !important;
     }
 
-    throw new Error("Port cetak Bluetooth printer tidak ditemukan.");
-};
-
-const formatReceiptLine = (left, right, width = RECEIPT_LINE_WIDTH) => {
-    const l = String(left || "");
-    const r = String(right || "");
-    if (l.length + r.length + 1 > width) {
-        return l.slice(0, Math.max(0, width - r.length - 1)) + " " + r + "\n";
-    }
-    const spaceCount = width - l.length - r.length;
-    return l + " ".repeat(spaceCount) + r + "\n";
-};
-
-const wrapReceiptText = (text, width = RECEIPT_LINE_WIDTH) => {
-    const words = String(text || "").split(/\s+/);
-    let lines = [];
-    let currentLine = "";
-
-    words.forEach(word => {
-        if ((currentLine + (currentLine ? " " : "") + word).length <= width) {
-            currentLine += (currentLine ? " " : "") + word;
-        } else {
-            if (currentLine) lines.push(currentLine);
-            currentLine = word;
-        }
-    });
-    if (currentLine) lines.push(currentLine);
-    return lines.join("\n") + "\n";
-};
-
-const buildEscPosReceipt = (trx, width = RECEIPT_LINE_WIDTH) => {
-    const ESC = "\x1B";
-    const GS = "\x1D";
-    const INIT = ESC + "@";
-    const CENTER = ESC + "a\x01";
-    const LEFT = ESC + "a\x00";
-    const BOLD_ON = ESC + "E\x01";
-    const BOLD_OFF = ESC + "E\x00";
-    const DOUBLE_HW = GS + "!\x11";
-    const NORMAL_SIZE = GS + "!\x00";
-    const CUT = GS + "V\x41\x03";
-
-    const line = "-".repeat(width) + "\n";
-    const dline = "=".repeat(width) + "\n";
-    const rp = (n) => "Rp " + (Number(n) || 0).toLocaleString("id-ID");
-
-    let text = INIT;
-    text += CENTER + BOLD_ON + DOUBLE_HW + appSettings.storeName.toUpperCase() + "\n" + NORMAL_SIZE + BOLD_OFF;
-    text += wrapReceiptText(appSettings.slogan, width);
-    text += wrapReceiptText(appSettings.address, width);
-    text += "Telp: " + appSettings.phone + "\n";
-    text += LEFT + dline;
-
-    text += formatReceiptLine("No. Trx", trx.id, width);
-    text += formatReceiptLine("Waktu", `${trx.date} ${trx.time}`, width);
-    text += formatReceiptLine("Kasir", trx.cashier || appSettings.cashierName || "Joee", width);
-    text += formatReceiptLine("Pelanggan", trx.customer, width);
-    text += formatReceiptLine("Tipe", trx.type, width);
-    text += line;
-
-    (trx.items || []).forEach(item => {
-        text += BOLD_ON + item.name + BOLD_OFF + "\n";
-        text += formatReceiptLine(`  ${item.qty} x ${rp(item.price)}`, rp(item.price * item.qty), width);
-    });
-
-    text += line;
-    text += formatReceiptLine("Subtotal", rp(trx.subtotal ?? trx.total), width);
-    text += formatReceiptLine(`Pajak (${appSettings.taxRate}%)`, rp(trx.tax ?? 0), width);
-    text += BOLD_ON + formatReceiptLine("TOTAL BAYAR", rp(trx.total), width) + BOLD_OFF;
-    text += formatReceiptLine("Metode", trx.method, width);
-    text += formatReceiptLine("Tunai", rp(trx.paid ?? trx.total), width);
-    text += BOLD_ON + formatReceiptLine("Kembalian", rp(trx.change ?? 0), width) + BOLD_OFF;
-    text += dline;
-
-    text += CENTER + BOLD_ON + wrapReceiptText(appSettings.receiptHeader, width) + BOLD_OFF;
-    text += wrapReceiptText(appSettings.receiptFooter, width) + "\n\n\n";
-    text += CUT;
-
-    return text.replace(/[^\x00-\x7F]/g, "");
-};
-
-const printReceiptBluetooth = async (trx) => {
-    if (!trx) return;
-    try {
-        const char = await connectBluetoothPrinter();
-        const rawPayload = buildEscPosReceipt(trx);
-        const encoder = new TextEncoder();
-        const data = encoder.encode(rawPayload);
-
-        const chunkSize = 100;
-        for (let i = 0; i < data.length; i += chunkSize) {
-            const chunk = data.slice(i, i + chunkSize);
-            if (char.properties.writeWithoutResponse) {
-                await char.writeValueWithoutResponse(chunk);
-            } else {
-                await char.writeValue(chunk);
-            }
-            await new Promise(r => setTimeout(r, 25));
-        }
-
-        showWebAlert("Struk berhasil dicetak ke printer Bluetooth!", "Cetak Berhasil", "success");
-    } catch (err) {
-        showWebAlert("Gagal cetak Bluetooth: " + err.message, "Printer Bluetooth", "error");
-    }
-};
-
-// ==========================================================================
-// CUSTOM POP-UP NOTIFIKASI & KONFIRMASI DI DALAM WEB
-// ==========================================================================
-const ensureWebAlertModal = () => {
-    let modal = document.getElementById("webAlertModal");
-    if (!modal) {
-        modal = document.createElement("div");
-        modal.className = "modal-overlay";
-        modal.id = "webAlertModal";
-        modal.innerHTML = `
-            <div class="modal-card web-alert-card">
-                <div class="web-alert-icon" id="webAlertIcon">
-                    <i class="fa-solid fa-circle-check"></i>
-                </div>
-                <h3 id="webAlertTitle">Berhasil</h3>
-                <p id="webAlertMessage">Pesan notifikasi</p>
-                <div class="web-alert-actions" id="webAlertActions">
-                    <button type="button" class="btn-secondary" id="btnWebAlertCancel" style="display: none;">Batal</button>
-                    <button type="button" class="btn-confirm" id="btnWebAlertOk" style="margin-top: 0;">OK</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    }
-    return modal;
-};
-
-const showWebAlert = (message, title = "Informasi", type = "info") => {
-    const modal = ensureWebAlertModal();
-    const iconEl = document.getElementById("webAlertIcon");
-    const titleEl = document.getElementById("webAlertTitle");
-    const msgEl = document.getElementById("webAlertMessage");
-    const btnCancel = document.getElementById("btnWebAlertCancel");
-    const btnOk = document.getElementById("btnWebAlertOk");
-
-    titleEl.textContent = title;
-    msgEl.textContent = message;
-    btnCancel.style.display = "none";
-    btnOk.textContent = "OK";
-
-    iconEl.className = "web-alert-icon";
-    if (type === "success") {
-        iconEl.classList.add("success");
-        iconEl.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
-    } else if (type === "error") {
-        iconEl.classList.add("error");
-        iconEl.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i>`;
-    } else {
-        iconEl.innerHTML = `<i class="fa-solid fa-circle-info"></i>`;
+    .sidebar .nav-link {
+        justify-content: flex-start !important;
+        padding: 11px 13px !important;
     }
 
-    modal.classList.add("active");
-    btnOk.onclick = () => modal.classList.remove("active");
-};
-
-const showWebConfirm = (message, title = "Konfirmasi", onConfirm) => {
-    const modal = ensureWebAlertModal();
-    const iconEl = document.getElementById("webAlertIcon");
-    const titleEl = document.getElementById("webAlertTitle");
-    const msgEl = document.getElementById("webAlertMessage");
-    const btnCancel = document.getElementById("btnWebAlertCancel");
-    const btnOk = document.getElementById("btnWebAlertOk");
-
-    titleEl.textContent = title;
-    msgEl.textContent = message;
-    btnCancel.style.display = "inline-block";
-    btnOk.textContent = "Ya, Lanjutkan";
-
-    iconEl.className = "web-alert-icon error";
-    iconEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
-
-    modal.classList.add("active");
-
-    btnCancel.onclick = () => modal.classList.remove("active");
-    btnOk.onclick = () => {
-        modal.classList.remove("active");
-        if (typeof onConfirm === "function") onConfirm();
-    };
-};
-
-const renderSidebarCopyright = () => {
-    const sidebar = document.getElementById("sidebar");
-    if (!sidebar || document.getElementById("sidebarCopyright")) return;
-    const footer = document.createElement("div");
-    footer.className = "sidebar-copyright";
-    footer.id = "sidebarCopyright";
-    footer.innerHTML = `
-        <strong>&copy; Copyright 2026 by Raihan.</strong>
-        <small>Teknologi &amp; Media Informasi</small>
-    `;
-    sidebar.appendChild(footer);
-};
-
-// ==========================================================================
-// KONTROL AKSES ADMIN & TAMPILAN KASIR
-// ==========================================================================
-const updateAdminUI = () => {
-    const btnAuth = document.getElementById("btnAdminAuth");
-    const cashierInfo = document.querySelector(".cashier-info");
-    const headerCashierEl = document.getElementById("headerCashierName");
-
-    if (btnAuth) {
-        if (isAdmin) {
-            btnAuth.innerHTML = `<i class="fa-solid fa-lock-open"></i> Admin Aktif (Logout)`;
-            btnAuth.style.background = "var(--success-color)";
-            btnAuth.style.color = "#fff";
-        } else {
-            btnAuth.innerHTML = `<i class="fa-solid fa-lock"></i> Mode Tamu (Login)`;
-            btnAuth.style.background = "";
-            btnAuth.style.color = "";
-        }
+    .sidebar .toggle-btn {
+        display: none;
     }
 
-    // Sembunyikan informasi kasir di Mode Tamu, tampilkan hanya saat Mode Admin
-    if (cashierInfo) {
-        cashierInfo.style.display = isAdmin ? "flex" : "none";
-    }
-    if (headerCashierEl && isAdmin) {
-        headerCashierEl.textContent = `Kasir: ${appSettings.cashierName || "Joee"}`;
+    .sidebar.mobile-open {
+        transform: translate3d(245px, 0, 0);
     }
 
-    const restrictedNavs = [
-        '.nav-link[data-page="report-page"]',
-        '.nav-link[data-page="settings-page"]'
-    ];
-    restrictedNavs.forEach(selector => {
-        const navEl = document.querySelector(selector);
-        if (navEl) navEl.style.display = isAdmin ? "" : "none";
-    });
-
-    const reportPage = document.getElementById("report-page");
-    const settingsPage = document.getElementById("settings-page");
-    if (!isAdmin && ((reportPage && reportPage.classList.contains("active")) || (settingsPage && settingsPage.classList.contains("active")))) {
-        switchToPage("menu-page");
+    /* Header Mobile Proporsional 2 Baris Simetris */
+    .top-header {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 8px;
+        padding: 10px;
     }
 
-    const cartSection = document.getElementById("cartSection");
-    if (cartSection) cartSection.style.display = "";
-
-    const mobileCartToggle = document.getElementById("mobileCartToggle");
-    if (mobileCartToggle) mobileCartToggle.style.display = "";
-
-    const btnHoldOrder = document.getElementById("btnHoldOrder");
-    const btnCheckout = document.getElementById("btnCheckout");
-    const actionsRow = document.querySelector(".cart-actions-row");
-
-    if (isAdmin) {
-        if (actionsRow) actionsRow.style.gridTemplateColumns = "auto 1fr";
-        if (btnHoldOrder) btnHoldOrder.style.display = "";
-        if (btnCheckout) {
-            btnCheckout.innerHTML = `Bayar Sekarang <i class="fa-solid fa-arrow-right"></i>`;
-        }
-    } else {
-        if (actionsRow) actionsRow.style.gridTemplateColumns = "1fr";
-        if (btnHoldOrder) btnHoldOrder.style.display = "none";
-        if (btnCheckout) {
-            btnCheckout.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Pesan (Masuk Pending)`;
-        }
+    .header-left-group,
+    .header-right {
+        display: contents;
     }
 
-    const adminOnlySelectors = [
-        "#btnSaveSettings",
-        "#btnClearHistory",
-        ".btn-delete-trx",
-        ".btn-resume-pending"
-    ];
-
-    adminOnlySelectors.forEach(selector => {
-        document.querySelectorAll(selector).forEach(el => {
-            el.style.display = isAdmin ? "" : "none";
-        });
-    });
-
-    document.querySelectorAll("#settings-page input").forEach(input => {
-        input.disabled = !isAdmin;
-    });
-};
-
-// ==========================================================================
-// SINKRONISASI LOKAL + CLOUD FIREBASE
-// ==========================================================================
-const persistTransactions = () => {
-    if (!isAdmin) return;
-    localStorage.setItem("sweet_memories_transactions", JSON.stringify(transactions));
-    if (db) db.ref("sweet_memories/transactions").set(transactions);
-};
-
-const persistPending = () => {
-    localStorage.setItem("sweet_memories_pending", JSON.stringify(pendingOrders));
-    if (db) {
-        db.ref("sweet_memories/pendingOrders").set(pendingOrders);
-    }
-};
-
-const initRealtimeCloudSync = () => {
-    if (!db) return;
-
-    db.ref(".info/connected").on("value", (snap) => {
-        const statusEl = document.getElementById("syncStatusText");
-        if (!statusEl) return;
-        if (snap.val() === true) {
-            statusEl.innerHTML = `<i class="fa-solid fa-circle"></i> Cloud Sync`;
-            statusEl.style.color = "var(--success-color)";
-        } else {
-            statusEl.innerHTML = `<i class="fa-solid fa-circle"></i> Lokal`;
-            statusEl.style.color = "var(--text-secondary)";
-        }
-    });
-
-    db.ref("sweet_memories/transactions").on("value", (snapshot) => {
-        const cloudData = snapshot.val();
-        transactions = cloudData ? (Array.isArray(cloudData) ? cloudData : Object.values(cloudData)) : [];
-        localStorage.setItem("sweet_memories_transactions", JSON.stringify(transactions));
-        syncAllViews();
-    });
-
-    db.ref("sweet_memories/pendingOrders").on("value", (snapshot) => {
-        const cloudPending = snapshot.val();
-        pendingOrders = cloudPending ? (Array.isArray(cloudPending) ? cloudPending : Object.values(cloudPending)) : [];
-        localStorage.setItem("sweet_memories_pending", JSON.stringify(pendingOrders));
-        updatePendingUI();
-    });
-
-    db.ref("sweet_memories/settings").on("value", (snapshot) => {
-        const cloudSettings = snapshot.val();
-        if (cloudSettings) {
-            appSettings = { ...appSettings, ...cloudSettings };
-            if (!appSettings.cashierName || appSettings.cashierName === "Admin") {
-                appSettings.cashierName = "Joee";
-            }
-            localStorage.setItem("sweet_memories_settings", JSON.stringify(appSettings));
-            applySettingsToForm();
-            updateCartUI();
-        }
-    });
-};
-
-const applySettingsToForm = () => {
-    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
-    setVal("cfgStoreName", appSettings.storeName);
-    setVal("cfgCashierName", appSettings.cashierName || "Joee");
-    setVal("cfgSlogan", appSettings.slogan);
-    setVal("cfgAddress", appSettings.address);
-    setVal("cfgPhone", appSettings.phone);
-    setVal("cfgTaxRate", appSettings.taxRate);
-    setVal("cfgServiceFee", appSettings.serviceFee);
-    setVal("cfgReceiptHeader", appSettings.receiptHeader);
-    setVal("cfgReceiptFooter", appSettings.receiptFooter);
-
-    const headerCashierEl = document.getElementById("headerCashierName");
-    if (headerCashierEl) {
-        headerCashierEl.textContent = `Kasir: ${appSettings.cashierName || "Joee"}`;
+    .mobile-toggle-btn {
+        grid-column: 1;
+        grid-row: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        font-size: 0.95rem;
     }
 
-    const autoPrintEl = document.getElementById("cfgAutoPrint");
-    if (autoPrintEl) autoPrintEl.checked = appSettings.autoPrint;
-
-    const taxLabel = document.getElementById("taxLabel");
-    if (taxLabel) taxLabel.textContent = `Pajak (${appSettings.taxRate}%)`;
-};
-
-const loadSettings = () => {
-    try {
-        const savedConfig = localStorage.getItem("sweet_memories_settings");
-        if (savedConfig) {
-            appSettings = { ...appSettings, ...JSON.parse(savedConfig) };
-            if (!appSettings.cashierName || appSettings.cashierName === "Admin") {
-                appSettings.cashierName = "Joee";
-            }
-        }
-    } catch (e) {}
-
-    try {
-        const savedHistory = localStorage.getItem("sweet_memories_transactions");
-        if (savedHistory) transactions = JSON.parse(savedHistory) || [];
-    } catch (e) { transactions = []; }
-
-    try {
-        const savedPending = localStorage.getItem("sweet_memories_pending");
-        if (savedPending) pendingOrders = JSON.parse(savedPending) || [];
-    } catch (e) { pendingOrders = []; }
-
-    applySettingsToForm();
-    syncAllViews();
-};
-
-const syncAllViews = () => {
-    updateHistoryTable();
-    updateReportSummary();
-    updatePendingUI();
-    updateAdminUI();
-};
-
-const startRealtimeClock = () => {
-    const dateDisplay = document.getElementById("dateDisplay");
-    if (!dateDisplay) return;
-    const updateClock = () => {
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
-        const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        dateDisplay.textContent = `${dateStr} - ${timeStr} WIB`;
-    };
-    updateClock();
-    setInterval(updateClock, 1000);
-};
-
-// ==========================================================================
-// RENDER MENU & PRODUK
-// ==========================================================================
-const renderMenu = () => {
-    const menuGrid = document.getElementById("menuGrid");
-    if (!menuGrid) return;
-    menuGrid.innerHTML = "";
-
-    const filteredMenu = menuItems.filter(item => {
-        const matchesCategory = activeCategory === "all" || item.category === activeCategory;
-        const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesCategory && matchesSearch;
-    });
-
-    if (filteredMenu.length === 0) {
-        menuGrid.innerHTML = `<p class="text-center" style="grid-column: 1/-1; margin-top: 40px;">Menu tidak ditemukan</p>`;
-        return;
+    .cashier-info {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: start;
+        padding: 3px 8px 3px 4px;
+        gap: 6px;
+        min-width: 0;
     }
 
-    filteredMenu.forEach(item => {
-        const card = document.createElement("div");
-        card.className = "menu-card";
-        card.innerHTML = `
-            <img src="${item.img}" alt="${item.name}" class="menu-img" loading="lazy" onerror="this.onerror=null; this.src='pict/logo/LOGO.png';">
-            <div class="menu-info">
-                <h4>${item.name} ${item.isCustom ? '<small style="color:var(--accent-light);">(Custom)</small>' : ''}</h4>
-                <div class="menu-price">${item.isCustom ? 'Mulai ' + formatRupiah(5000) : formatRupiah(item.price)}</div>
-            </div>
-        `;
-        card.addEventListener("click", () => handleProductClick(item));
-        menuGrid.appendChild(card);
-    });
-};
-
-const handleProductClick = (product) => {
-    if (product.isCustom) {
-        selectedBeadProduct = product;
-        populateBeadPrices();
-        const modal = document.getElementById("customBeadModal");
-        if (modal) modal.classList.add("active");
-    } else {
-        addToCart(product);
-    }
-};
-
-const populateBeadPrices = () => {
-    const typeSel = document.getElementById("beadVariantType");
-    const priceSel = document.getElementById("beadVariantPrice");
-    if (!typeSel || !priceSel) return;
-    const options = beadVariants[typeSel.value] || [];
-    priceSel.innerHTML = "";
-    options.forEach(opt => {
-        const optionEl = document.createElement("option");
-        optionEl.value = opt.price;
-        optionEl.dataset.name = opt.name;
-        optionEl.textContent = `${opt.name} - ${formatRupiah(opt.price)}`;
-        priceSel.appendChild(optionEl);
-    });
-};
-
-// ==========================================================================
-// KERANJANG & PERHITUNGAN
-// ==========================================================================
-const addToCart = (product) => {
-    const existingIndex = cart.findIndex(item => String(item.id) === String(product.id) || item.name === product.name);
-    if (existingIndex > -1) {
-        cart[existingIndex].qty += 1;
-    } else {
-        cart.push({ ...product, qty: 1 });
-    }
-    updateCartUI();
-};
-
-window.updateQty = (id, delta) => {
-    const index = cart.findIndex(item => String(item.id) === String(id));
-    if (index > -1) {
-        cart[index].qty += delta;
-        if (cart[index].qty <= 0) cart.splice(index, 1);
-    }
-    updateCartUI();
-};
-
-const updateCartUI = () => {
-    const totalQty = cart.reduce((sum, item) => sum + item.qty, 0);
-    const mobileCartCount = document.getElementById("mobileCartCount");
-    if (mobileCartCount) mobileCartCount.textContent = totalQty;
-
-    const cartItemsContainer = document.getElementById("cartItems");
-    const subtotalEl = document.getElementById("subtotal");
-    const taxEl = document.getElementById("tax");
-    const grandTotalEl = document.getElementById("grandTotal");
-    const btnCheckout = document.getElementById("btnCheckout");
-    const btnHoldOrder = document.getElementById("btnHoldOrder");
-
-    if (!cartItemsContainer) return;
-    cartItemsContainer.innerHTML = "";
-
-    if (cart.length === 0) {
-        cartItemsContainer.innerHTML = `
-            <div class="cart-empty">
-                <i class="fa-solid fa-basket-shopping"></i>
-                <p>Belum ada item dipilih</p>
-            </div>`;
-        if (subtotalEl) subtotalEl.textContent = "Rp 0";
-        if (taxEl) taxEl.textContent = "Rp 0";
-        if (grandTotalEl) grandTotalEl.textContent = "Rp 0";
-        if (btnCheckout) btnCheckout.disabled = true;
-        if (btnHoldOrder) btnHoldOrder.disabled = true;
-        return;
+    .cashier-info .avatar {
+        width: 24px;
+        height: 24px;
     }
 
-    let subtotal = 0;
-    cart.forEach(item => {
-        subtotal += item.price * item.qty;
-        const itemEl = document.createElement("div");
-        itemEl.className = "cart-item";
-        itemEl.innerHTML = `
-            <div class="cart-item-info">
-                <h5>${item.name}</h5>
-                <small>${formatRupiah(item.price * item.qty)}</small>
-            </div>
-            <div class="cart-item-controls">
-                <button type="button" class="btn-qty" onclick="updateQty('${item.id}', -1)">-</button>
-                <span>${item.qty}</span>
-                <button type="button" class="btn-qty" onclick="updateQty('${item.id}', 1)">+</button>
-            </div>
-        `;
-        cartItemsContainer.appendChild(itemEl);
-    });
-
-    const tax = subtotal * (appSettings.taxRate / 100);
-    const grandTotal = subtotal + tax + appSettings.serviceFee;
-
-    if (subtotalEl) subtotalEl.textContent = formatRupiah(subtotal);
-    if (taxEl) taxEl.textContent = formatRupiah(tax);
-    if (grandTotalEl) grandTotalEl.textContent = formatRupiah(grandTotal);
-    if (btnCheckout) btnCheckout.disabled = false;
-    if (btnHoldOrder) btnHoldOrder.disabled = false;
-};
-
-// ==========================================================================
-// ANTREAN PENDING, RIWAYAT & LAPORAN
-// ==========================================================================
-const updatePendingUI = () => {
-    const badge = document.getElementById("pendingBadge");
-    if (badge) {
-        badge.style.display = pendingOrders.length > 0 ? "inline-block" : "none";
-        badge.textContent = pendingOrders.length;
+    .cashier-details strong {
+        font-size: 0.72rem;
     }
 
-    const grid = document.getElementById("pendingOrdersGrid");
-    if (!grid) return;
-
-    if (pendingOrders.length === 0) {
-        grid.innerHTML = `
-            <div class="table-card text-center" style="grid-column: 1 / -1; padding: 32px;">
-                <i class="fa-solid fa-mug-saucer" style="font-size: 2rem; opacity: 0.4; margin-bottom: 8px;"></i>
-                <p>Tidak ada antrean pesanan pending saat ini.</p>
-            </div>`;
-        return;
+    .status-online {
+        font-size: 0.6rem;
+        white-space: nowrap;
     }
 
-    grid.innerHTML = "";
-    pendingOrders.forEach(order => {
-        const itemsListHTML = (order.items || []).map(i => `
-            <li><span>${i.qty}x ${i.name}</span><span>${formatRupiah(i.price * i.qty)}</span></li>
-        `).join("");
-
-        const card = document.createElement("div");
-        card.className = "pending-card";
-        card.innerHTML = `
-            <div>
-                <div class="pending-card-header">
-                    <div>
-                        <h4>${order.customer}</h4>
-                        <small style="color: var(--text-secondary);"><i class="fa-regular fa-clock"></i> ${order.time} • ${order.id}</small>
-                    </div>
-                    <span class="pending-badge-type">${order.type}</span>
-                </div>
-                <ul class="pending-items-list" style="margin-top: 10px;">${itemsListHTML}</ul>
-            </div>
-            <div class="pending-card-footer">
-                <div class="pending-total-row"><span>Total Sementara</span><span>${formatRupiah(order.total)}</span></div>
-                <div class="pending-btn-group">
-                    <button type="button" class="btn-resume-pending" onclick="resumePendingOrder('${order.id}')">
-                        <i class="fa-solid fa-cart-arrow-down"></i> Lanjutkan ke Kasir
-                    </button>
-                    <button type="button" class="btn-delete-trx" onclick="deletePendingOrder('${order.id}')">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                </div>
-            </div>
-        `;
-        grid.appendChild(card);
-    });
-    updateAdminUI();
-};
-
-window.resumePendingOrder = (pendingId) => {
-    if (!isAdmin) return;
-    const target = pendingOrders.find(p => p.id === pendingId);
-    if (!target) return;
-
-    const proceedResume = () => {
-        cart = (target.items || []).map(item => ({ ...item }));
-        const custInput = document.getElementById("customerName");
-        if (custInput) custInput.value = (target.customer.startsWith("Antrean #") || target.customer.startsWith("Tamu #")) ? "" : target.customer;
-        currentOrderType = target.type;
-
-        document.querySelectorAll(".type-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.type === currentOrderType));
-        pendingOrders = pendingOrders.filter(p => p.id !== pendingId);
-        persistPending();
-        updateCartUI();
-        updatePendingUI();
-        switchToPage("menu-page");
-    };
-
-    if (cart.length > 0) {
-        showWebConfirm("Keranjang kasir masih berisi pesanan. Ganti dengan pesanan antrean ini?", "Ganti Keranjang", proceedResume);
-    } else {
-        proceedResume();
-    }
-};
-
-window.deletePendingOrder = (pendingId) => {
-    if (!isAdmin) return;
-    showWebConfirm("Hapus pesanan pending ini dari antrean?", "Hapus Antrean", () => {
-        pendingOrders = pendingOrders.filter(p => p.id !== pendingId);
-        persistPending();
-        updatePendingUI();
-    });
-};
-
-const updateHistoryTable = () => {
-    const tbody = document.getElementById("historyTableBody");
-    if (!tbody) return;
-    tbody.innerHTML = "";
-
-    if (transactions.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center">Belum ada riwayat transaksi.</td></tr>`;
-        return;
+    #btnAdminAuth {
+        grid-column: 3;
+        grid-row: 1;
+        justify-self: end;
+        padding: 6px 9px !important;
+        font-size: 0.68rem !important;
+        white-space: nowrap;
     }
 
-    transactions.forEach(trx => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td><strong>${trx.id}</strong></td>
-            <td>${trx.time} (${trx.date})</td>
-            <td>${trx.customer}</td>
-            <td>${trx.type}</td>
-            <td>${trx.method}</td>
-            <td>${formatRupiah(trx.total)}</td>
-            <td>
-                <div class="btn-action-group">
-                    <button class="btn-print-trx" onclick="viewReceiptFromHistory('${trx.id}')"><i class="fa-solid fa-print"></i> Cetak</button>
-                    <button class="btn-delete-trx" onclick="deleteTransaction('${trx.id}')"><i class="fa-solid fa-trash-can"></i></button>
-                </div>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-    updateAdminUI();
-};
-
-window.deleteTransaction = (trxId) => {
-    if (!isAdmin) return;
-    showWebConfirm(`Apakah Anda yakin ingin menghapus transaksi ${trxId}?`, "Hapus Transaksi", () => {
-        transactions = transactions.filter(t => t.id !== trxId);
-        persistTransactions();
-        syncAllViews();
-    });
-};
-
-window.viewReceiptFromHistory = (trxId) => {
-    const target = transactions.find(t => t.id === trxId);
-    if (target) showReceiptModal(target);
-};
-
-const updateReportSummary = () => {
-    let totalRevenue = 0;
-    const itemSales = {};
-
-    transactions.forEach(trx => {
-        const trxTotal = Number(trx.total) || 0;
-        totalRevenue += trxTotal;
-        if (Array.isArray(trx.items)) {
-            trx.items.forEach(item => {
-                const name = item.name || "Produk";
-                const qty = Number(item.qty) || 1;
-                const price = Number(item.price) || 0;
-                if (!itemSales[name]) itemSales[name] = { category: item.category || "umum", qty: 0, revenue: 0 };
-                itemSales[name].qty += qty;
-                itemSales[name].revenue += (price * qty);
-            });
-        }
-    });
-
-    const revEl = document.getElementById("statTotalRevenue");
-    const ordEl = document.getElementById("statTotalOrders");
-    const topEl = document.getElementById("statTopProduct");
-    const reportTbody = document.getElementById("reportTableBody");
-
-    if (revEl) revEl.textContent = formatRupiah(totalRevenue);
-    if (ordEl) ordEl.textContent = transactions.length;
-
-    let topProduct = "-";
-    let maxQty = 0;
-    for (const [name, data] of Object.entries(itemSales)) {
-        if (data.qty > maxQty) { maxQty = data.qty; topProduct = name; }
-    }
-    if (topEl) topEl.textContent = topProduct;
-
-    if (!reportTbody) return;
-    reportTbody.innerHTML = Object.keys(itemSales).length === 0
-        ? `<tr><td colspan="4" class="text-center">Belum ada data penjualan.</td></tr>`
-        : Object.entries(itemSales).map(([name, d]) => `<tr><td><strong>${name}</strong></td><td>${d.category}</td><td>${d.qty} pcs</td><td>${formatRupiah(d.revenue)}</td></tr>`).join("");
-};
-
-const showReceiptModal = (trx) => {
-    currentReceiptData = trx;
-    const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    setText("rcStoreName", appSettings.storeName.toUpperCase());
-    setText("rcStoreTagline", appSettings.slogan);
-    setText("rcStoreAddress", appSettings.address);
-    setText("rcStorePhone", "Telp: " + appSettings.phone);
-    setText("rcTrxId", trx.id);
-
-    const now = new Date();
-    setText("rcDateTime", `${now.toLocaleDateString('id-ID')} ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`);
-    setText("rcCashierName", trx.cashier || appSettings.cashierName || "Joee");
-    setText("rcCustomer", trx.customer);
-    setText("rcOrderType", trx.type);
-
-    const itemsContainer = document.getElementById("rcItemsList");
-    if (itemsContainer) {
-        itemsContainer.innerHTML = (trx.items || []).map(item => `
-            <div class="rc-item">
-                <div class="rc-item-title">${item.name}</div>
-                <div class="rc-item-calc"><span>${item.qty} x ${formatRupiah(item.price)}</span><span>${formatRupiah(item.price * item.qty)}</span></div>
-            </div>
-        `).join("");
+    .search-box {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        max-width: 100%;
+        width: 100%;
     }
 
-    setText("rcSubtotal", formatRupiah(trx.subtotal || trx.total));
-    setText("rcTaxPercent", appSettings.taxRate);
-    setText("rcTax", formatRupiah(trx.tax || 0));
-    setText("rcGrandTotal", formatRupiah(trx.total));
-    setText("rcPayMethod", trx.method);
-    setText("rcPaid", formatRupiah(trx.paid || trx.total));
-    setText("rcChange", formatRupiah(trx.change || 0));
-    setText("rcFooterHeader", appSettings.receiptHeader);
-
-    const footerMsg = document.getElementById("rcFooterMessage");
-    if (footerMsg) footerMsg.innerHTML = appSettings.receiptFooter.replace(/\n/g, "<br>");
-
-    const rModal = document.getElementById("receiptModal");
-    if (rModal) rModal.classList.add("active");
-};
-
-// ==========================================================================
-// NAVIGASI & EVENT LISTENERS
-// ==========================================================================
-const closeMobileDrawers = () => {
-    const sb = document.getElementById("sidebar");
-    const cs = document.getElementById("cartSection");
-    const bd = document.getElementById("mobileBackdrop");
-    if (sb) sb.classList.remove("mobile-open");
-    if (cs) cs.classList.remove("mobile-cart-open");
-    if (bd) bd.classList.remove("active");
-};
-
-const switchToPage = (targetPage) => {
-    if ((targetPage === "settings-page" || targetPage === "report-page") && !isAdmin) {
-        showWebAlert("Akses ditolak! Halaman ini hanya dapat dibuka oleh Admin.", "Akses Ditolak", "error");
-        return;
+    .search-box input {
+        padding: 8px 12px 8px 34px;
+        font-size: 0.78rem;
     }
 
-    document.querySelectorAll(".nav-link").forEach(l => l.classList.toggle("active", l.dataset.page === targetPage));
-    document.querySelectorAll(".page-content").forEach(p => p.classList.toggle("active", p.id === targetPage));
-    if (["history-page", "report-page", "pending-page"].includes(targetPage)) syncAllViews();
-    if (window.innerWidth <= 768) closeMobileDrawers();
-};
-
-const initEventListeners = () => {
-    const appContainer = document.querySelector(".app-container");
-    const sidebar = document.getElementById("sidebar");
-    const cartSection = document.getElementById("cartSection");
-    const mobileBackdrop = document.getElementById("mobileBackdrop");
-
-    const on = (id, event, fn) => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener(event, fn);
-    };
-
-    if (auth) {
-        auth.onAuthStateChanged((user) => {
-            isAdmin = !!user;
-            updateAdminUI();
-            syncAllViews();
-        });
+    .search-icon {
+        left: 11px;
+        font-size: 0.8rem;
     }
 
-    on("btnAdminAuth", "click", () => {
-        if (isAdmin && auth) {
-            showWebConfirm("Keluar dari mode Admin? Web akan kembali ke Mode Tamu.", "Logout Admin", () => {
-                auth.signOut();
-            });
-        } else {
-            const lm = document.getElementById("adminLoginModal");
-            const errEl = document.getElementById("loginErrorMsg");
-            if (errEl) errEl.style.display = "none";
-            if (lm) lm.classList.add("active");
-        }
-    });
+    .date-now {
+        display: none;
+    }
 
-    on("btnCloseLoginModal", "click", () => {
-        const lm = document.getElementById("adminLoginModal");
-        if (lm) lm.classList.remove("active");
-    });
+    .main-content {
+        padding: 12px 12px 84px;
+        width: 100%;
+    }
 
-    on("btnSubmitAdminLogin", "click", () => {
-        if (!auth) return;
-        const email = document.getElementById("adminEmail").value.trim();
-        const pass = document.getElementById("adminPassword").value;
-        const errEl = document.getElementById("loginErrorMsg");
+    .menu-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
 
-        auth.signInWithEmailAndPassword(email, pass)
-            .then(() => {
-                document.getElementById("adminLoginModal").classList.remove("active");
-                document.getElementById("adminPassword").value = "";
-            })
-            .catch(() => {
-                if (errEl) {
-                    errEl.textContent = "Email atau password Admin salah!";
-                    errEl.style.display = "block";
-                }
-            });
-    });
+    .stats-grid,
+    .form-grid,
+    .settings-layout {
+        grid-template-columns: 1fr;
+    }
 
-    on("sidebarToggle", "click", () => {
-        if (sidebar) sidebar.classList.toggle("collapsed");
-        if (appContainer) appContainer.classList.toggle("sidebar-collapsed");
-    });
+    .mobile-close-cart {
+        display: grid;
+    }
 
-    on("mobileSidebarToggle", "click", () => {
-        if (sidebar) sidebar.classList.add("mobile-open");
-        if (mobileBackdrop) mobileBackdrop.classList.add("active");
-    });
+    .cart-section {
+        position: fixed;
+        right: -350px;
+        top: 0;
+        bottom: 0;
+        width: 88vw;
+        max-width: 340px;
+        z-index: 95;
+        box-shadow: var(--shadow-lg);
+        transition: transform 0.18s ease-out;
+    }
 
-    on("mobileCartToggle", "click", () => {
-        if (cartSection) cartSection.classList.add("mobile-cart-open");
-        if (mobileBackdrop) mobileBackdrop.classList.add("active");
-    });
+    .cart-section.mobile-cart-open {
+        transform: translate3d(-350px, 0, 0);
+    }
 
-    on("mobileCloseCart", "click", closeMobileDrawers);
-    on("mobileBackdrop", "click", closeMobileDrawers);
+    .mobile-cart-fab {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        position: fixed;
+        bottom: 16px;
+        right: 16px;
+        z-index: 75;
+        background: var(--accent-color);
+        color: #FFF9F2;
+        border: none;
+        border-radius: 999px;
+        padding: 12px 18px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        box-shadow: var(--shadow-lg);
+        cursor: pointer;
+    }
 
-    document.querySelectorAll(".nav-link").forEach(link => {
-        link.addEventListener("click", (e) => {
-            e.preventDefault();
-            switchToPage(link.dataset.page);
-        });
-    });
+    .mobile-cart-fab span {
+        background: #FFF9F2;
+        color: var(--accent-color);
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+    }
+}
 
-    on("categoryContainer", "click", (e) => {
-        const btn = e.target.closest(".cat-btn");
-        if (!btn) return;
-        document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        activeCategory = btn.dataset.category;
-        renderMenu();
-    });
+/* ==========================================================================
+11. QRIS STATUS INTEGRATION & VERIFICATION
+   ========================================================================== */
+.qris-box {
+    text-align: center;
+    background: var(--bg-main);
+    padding: 12px;
+    border-radius: var(--radius-md);
+    border: 1.5px dashed var(--border-color);
+}
 
-    on("searchInput", "input", (e) => {
-        searchQuery = e.target.value;
-        renderMenu();
-    });
+.qris-barcode-img {
+    width: 180px;
+    height: 180px;
+    object-fit: contain;
+    background: #fff;
+    padding: 6px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+}
 
-    on("btnClearCart", "click", () => {
-        cart = [];
-        updateCartUI();
-    });
+.qris-status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    width: 100%;
+    margin-bottom: 4px;
+}
 
-    const submitOrderToPending = () => {
-        if (cart.length === 0) return;
-        const now = new Date();
-        const custInput = document.getElementById("customerName");
-        const customer = (custInput && custInput.value.trim()) || (isAdmin ? `Antrean #${pendingOrders.length + 1}` : `Tamu #${pendingOrders.length + 1}`);
-        const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
-        const total = subtotal + (subtotal * (appSettings.taxRate / 100)) + appSettings.serviceFee;
+.qris-status-badge.waiting {
+    background: rgba(217, 130, 43, 0.14);
+    color: #B26213;
+    border: 1px solid rgba(217, 130, 43, 0.35);
+}
 
-        const newOrder = {
-            id: "PEND-" + Date.now().toString().slice(-4),
-            time: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-            customer,
-            type: currentOrderType,
-            items: cart.map(i => ({ ...i })),
-            total
-        };
+.qris-status-badge.paid {
+    background: rgba(74, 124, 89, 0.16);
+    color: var(--success-color);
+    border: 1px solid rgba(74, 124, 89, 0.4);
+}
 
-        if (db) {
-            db.ref("sweet_memories/pendingOrders").push(newOrder)
-                .then(() => {
-                    cart = [];
-                    if (custInput) custInput.value = "";
-                    updateCartUI();
-                    if (window.innerWidth <= 768) closeMobileDrawers();
-                    if (!isAdmin) {
-                        showWebAlert("Pesanan berhasil dikirim ke Antrean Pending! Silakan konfirmasi ke kasir.", "Pesanan Terkirim", "success");
-                        switchToPage("pending-page");
-                    } else {
-                        showWebAlert("Pesanan berhasil disimpan ke Antrean Pending.", "Antrean Tersimpan", "success");
-                    }
-                })
-                .catch((err) => {
-                    showWebAlert("Gagal mengirim pesanan ke server: " + err.message, "Gagal Mengirim", "error");
-                });
-        } else {
-            pendingOrders.unshift(newOrder);
-            localStorage.setItem("sweet_memories_pending", JSON.stringify(pendingOrders));
-            cart = [];
-            if (custInput) custInput.value = "";
-            updateCartUI();
-            updatePendingUI();
-            if (!isAdmin) {
-                showWebAlert("Pesanan berhasil dikirim ke Antrean Pending! Silakan konfirmasi ke kasir.", "Pesanan Terkirim", "success");
-                switchToPage("pending-page");
-            }
-        }
-    };
+.qris-verify-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-top: 8px;
+}
 
-    on("btnHoldOrder", "click", () => {
-        if (!isAdmin || cart.length === 0) return;
-        submitOrderToPending();
-    });
+.btn-qris-verify {
+    background: var(--success-color);
+    color: #fff;
+    border: none;
+    padding: 7px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: var(--transition-fast);
+}
 
-    on("btnCheckout", "click", () => {
-        if (cart.length === 0) return;
-        if (!isAdmin) {
-            submitOrderToPending();
-            return;
-        }
-        const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
-        const grandTotal = subtotal + (subtotal * (appSettings.taxRate / 100)) + appSettings.serviceFee;
-        const modalTotal = document.getElementById("modalTotal");
-        const cashAmountInput = document.getElementById("cashAmount");
-        const changeAmountEl = document.getElementById("changeAmount");
-        const paymentModal = document.getElementById("paymentModal");
+.btn-qris-verify:hover {
+    opacity: 0.92;
+}
 
-        if (modalTotal) modalTotal.textContent = formatRupiah(grandTotal);
-        if (cashAmountInput) cashAmountInput.value = "";
-        if (changeAmountEl) changeAmountEl.textContent = "Rp 0";
-
-        const cashRadio = document.querySelector('input[name="payMethod"][value="Cash"]');
-        if (cashRadio) { cashRadio.checked = true; cashRadio.dispatchEvent(new Event('change')); }
-        if (paymentModal) paymentModal.classList.add("active");
-    });
-
-    on("btnCloseModal", "click", () => {
-        const pm = document.getElementById("paymentModal");
-        if (pm) pm.classList.remove("active");
-    });
-
-    document.querySelectorAll('input[name="payMethod"]').forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            document.querySelectorAll('.pay-method').forEach(m => m.classList.remove('active'));
-            e.target.closest('.pay-method').classList.add('active');
-            const cashGroup = document.getElementById("cashGroup");
-            const qrisGroup = document.getElementById("qrisGroup");
-            const qrisImage = document.getElementById("qrisImage");
-            if (e.target.value === 'QRIS') {
-                if (cashGroup) cashGroup.style.display = 'none';
-                if (qrisGroup) qrisGroup.style.display = 'block';
-                if (qrisImage) qrisImage.src = "pict/img/QRISBarcode.jpeg";
-            } else {
-                if (cashGroup) cashGroup.style.display = 'flex';
-                if (qrisGroup) qrisGroup.style.display = 'none';
-            }
-        });
-    });
-
-    on("cashAmount", "input", (e) => {
-        const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
-        const grandTotal = subtotal + (subtotal * (appSettings.taxRate / 100)) + appSettings.serviceFee;
-        const change = (parseFloat(e.target.value) || 0) - grandTotal;
-        const changeEl = document.getElementById("changeAmount");
-        if (changeEl) changeEl.textContent = change >= 0 ? formatRupiah(change) : "Uang Kurang";
-    });
-
-    document.querySelectorAll(".btn-quick").forEach(btn => {
-        btn.addEventListener("click", () => {
-            const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
-            const grandTotal = subtotal + (subtotal * (appSettings.taxRate / 100)) + appSettings.serviceFee;
-            const cashInput = document.getElementById("cashAmount");
-            if (cashInput) {
-                cashInput.value = btn.dataset.val === "exact" ? grandTotal : btn.dataset.val;
-                cashInput.dispatchEvent(new Event("input"));
-            }
-        });
-    });
-
-    on("btnConfirmPay", "click", () => {
-        if (!isAdmin) return;
-        const custInput = document.getElementById("customerName");
-        const customer = (custInput && custInput.value.trim()) || "-";
-        const payRadio = document.querySelector('input[name="payMethod"]:checked');
-        const payMethod = payRadio ? payRadio.value : "Cash";
-        const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
-        const tax = subtotal * (appSettings.taxRate / 100);
-        const grandTotal = subtotal + tax + appSettings.serviceFee;
-
-        let paidAmount = grandTotal;
-        let changeAmount = 0;
-
-        if (payMethod === "Cash") {
-            const cashInput = document.getElementById("cashAmount");
-            paidAmount = (cashInput && parseFloat(cashInput.value)) || 0;
-            if (paidAmount < grandTotal) {
-                showWebAlert("Jumlah uang tunai yang diterima kurang!", "Pembayaran Gagal", "error");
-                return;
-            }
-            changeAmount = paidAmount - grandTotal;
-        }
-
-        const now = new Date();
-        const trx = {
-            id: "SM-" + Date.now().toString().slice(-4),
-            time: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-            date: now.toLocaleDateString('id-ID'),
-            cashier: appSettings.cashierName || "Joee",
-            customer,
-            type: currentOrderType,
-            method: payMethod,
-            items: cart.map(item => ({ id: item.id, name: item.name, price: Number(item.price), qty: Number(item.qty), category: item.category })),
-            subtotal,
-            tax,
-            total: grandTotal,
-            paid: paidAmount,
-            change: changeAmount
-        };
-
-        transactions.unshift(trx);
-        persistTransactions();
-        syncAllViews();
-
-        cart = [];
-        if (custInput) custInput.value = "";
-        updateCartUI();
-
-        const pm = document.getElementById("paymentModal");
-        if (pm) pm.classList.remove("active");
-        if (window.innerWidth <= 768) closeMobileDrawers();
-
-        showReceiptModal(trx);
-        if (appSettings.autoPrint) {
-            if (btPrinterCharacteristic && btPrinterCharacteristic.service && btPrinterCharacteristic.service.device.gatt.connected) {
-                printReceiptBluetooth(trx);
-            } else {
-                setTimeout(() => window.print(), 400);
-            }
-        }
-    });
-
-    on("beadVariantType", "change", populateBeadPrices);
-    on("btnCloseCustomModal", "click", () => {
-        const cm = document.getElementById("customBeadModal");
-        if (cm) cm.classList.remove("active");
-    });
-
-    on("btnConfirmCustomBead", "click", () => {
-        const priceSel = document.getElementById("beadVariantPrice");
-        if (!selectedBeadProduct || !priceSel) return;
-        const opt = priceSel.options[priceSel.selectedIndex];
-        if (!opt) return;
-        addToCart({
-            id: `bead_${opt.dataset.name.replace(/\s+/g, '_')}`,
-            name: `${selectedBeadProduct.name} (${opt.dataset.name})`,
-            price: parseFloat(opt.value),
-            category: selectedBeadProduct.category,
-            img: selectedBeadProduct.img
-        });
-        const cm = document.getElementById("customBeadModal");
-        if (cm) cm.classList.remove("active");
-    });
-
-    on("btnPrintBluetooth80", "click", () => {
-        if (currentReceiptData) printReceiptBluetooth(currentReceiptData);
-    });
-    on("btnPrintReceiptNow", "click", () => window.print());
-    on("btnCloseReceiptModal", "click", () => {
-        const rm = document.getElementById("receiptModal");
-        if (rm) rm.classList.remove("active");
-    });
-
-    document.querySelectorAll(".type-btn").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            document.querySelectorAll(".type-btn").forEach(b => b.classList.remove("active"));
-            e.target.classList.add("active");
-            currentOrderType = e.target.dataset.type;
-        });
-    });
-
-    document.querySelectorAll(".setting-tab").forEach(tab => {
-        tab.addEventListener("click", () => {
-            document.querySelectorAll(".setting-tab").forEach(t => t.classList.remove("active"));
-            document.querySelectorAll(".setting-panel").forEach(p => p.classList.remove("active"));
-            tab.classList.add("active");
-            const panel = document.getElementById(tab.dataset.tab);
-            if (panel) panel.classList.add("active");
-        });
-    });
-
-    on("btnSaveSettings", "click", () => {
-        if (!isAdmin) return;
-        const getVal = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
-        appSettings.storeName = getVal("cfgStoreName");
-        appSettings.cashierName = getVal("cfgCashierName").trim() || "Joee";
-        appSettings.slogan = getVal("cfgSlogan");
-        appSettings.address = getVal("cfgAddress");
-        appSettings.phone = getVal("cfgPhone");
-        appSettings.taxRate = parseFloat(getVal("cfgTaxRate")) || 0;
-        appSettings.serviceFee = parseFloat(getVal("cfgServiceFee")) || 0;
-        appSettings.receiptHeader = getVal("cfgReceiptHeader");
-        appSettings.receiptFooter = getVal("cfgReceiptFooter");
-        const ap = document.getElementById("cfgAutoPrint");
-        appSettings.autoPrint = ap ? ap.checked : true;
-
-        localStorage.setItem("sweet_memories_settings", JSON.stringify(appSettings));
-        if (db) db.ref("sweet_memories/settings").set(appSettings);
-        applySettingsToForm();
-        updateCartUI();
-        showWebAlert("Pengaturan sistem berhasil disimpan!", "Berhasil Disimpan", "success");
-    });
-
-    on("btnClearHistory", "click", () => {
-        if (!isAdmin) return;
-        showWebConfirm("Hapus seluruh riwayat transaksi di semua perangkat?", "Hapus Semua Riwayat", () => {
-            transactions = [];
-            persistTransactions();
-            syncAllViews();
-        });
-    });
-
-    on("btnBackupData", "click", () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ settings: appSettings, transactions, pendingOrders }, null, 2));
-        const a = document.createElement('a');
-        a.href = dataStr;
-        a.download = `Backup_Kasir_SweetMemories_${Date.now()}.json`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-    });
-
-    on("btnExportExcel", "click", () => {
-        if (transactions.length === 0) {
-            showWebAlert("Belum ada data transaksi untuk di-export!", "Data Kosong", "info");
-            return;
-        }
-
-        const formatRpClean = (num) => "Rp " + (Number(num) || 0).toLocaleString("id-ID");
-
-        let totalOmsetKeseluruhan = 0;
-        let totalItemTerjual = 0;
-
-        const rowsHTML = transactions.map((t, index) => {
-            const itemsList = Array.isArray(t.items) ? t.items : [];
-            const detailPesanan = itemsList.length > 0
-                ? itemsList.map(i => `• ${i.name} (${i.qty}x @ ${formatRpClean(i.price)})`).join("<br>")
-                : "-";
-            const qtyTotalTrx = itemsList.reduce((sum, i) => sum + (Number(i.qty) || 1), 0);
-
-            totalOmsetKeseluruhan += Number(t.total) || 0;
-            totalItemTerjual += qtyTotalTrx;
-
-            const rowBg = index % 2 === 1 ? "#FFFDF7" : "#FFFFFF";
-
-            return `
-                <tr style="background-color: ${rowBg};">
-                    <td style="text-align: center;">${index + 1}</td>
-                    <td style="text-align: center; font-weight: bold;">${t.id}</td>
-                    <td style="text-align: center;">${t.date} ${t.time}</td>
-                    <td>${t.customer}</td>
-                    <td style="text-align: center;">${t.type}</td>
-                    <td style="line-height: 1.5;">${detailPesanan}</td>
-                    <td style="text-align: center; font-weight: bold;">${qtyTotalTrx} pcs</td>
-                    <td style="text-align: center;">${t.method}</td>
-                    <td style="text-align: right;">${formatRpClean(t.subtotal ?? t.total)}</td>
-                    <td style="text-align: right;">${formatRpClean(t.tax ?? 0)}</td>
-                    <td style="text-align: right; font-weight: bold; color: #3E2421;">${formatRpClean(t.total)}</td>
-                    <td style="text-align: right;">${formatRpClean(t.paid ?? t.total)}</td>
-                    <td style="text-align: right;">${formatRpClean(t.change ?? 0)}</td>
-                </tr>
-            `;
-        }).join("");
-
-        const printDate = new Date().toLocaleString("id-ID", {
-            dateStyle: "full",
-            timeStyle: "short"
-        });
-
-        const excelTemplate = `
-            <html xmlns:o="urn:schemas-microsoft-com:office:office"
-                  xmlns:x="urn:schemas-microsoft-com:office:excel"
-                  xmlns="http://www.w3.org/TR/REC-html40">
-            <head>
-                <meta charset="UTF-8">
-                <!--[if gte mso 9]>
-                <xml>
-                    <x:ExcelWorkbook>
-                        <x:ExcelWorksheets>
-                            <x:ExcelWorksheet>
-                                <x:Name>Laporan Penjualan</x:Name>
-                                <x:WorksheetOptions>
-                                    <x:DisplayGridlines/>
-                                </x:WorksheetOptions>
-                            </x:ExcelWorksheet>
-                        </x:ExcelWorksheets>
-                    </x:ExcelWorkbook>
-                </xml>
-                <![endif]-->
-                <style>
-                    body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
-                    table { border-collapse: collapse; width: 100%; }
-                    .title-box { font-size: 15pt; font-weight: bold; color: #3E2421; padding: 6px 0; }
-                    .sub-box { font-size: 10pt; color: #555555; padding-bottom: 10px; }
-                    th {
-                        background-color: #FFD54F;
-                        color: #2B1A17;
-                        font-weight: bold;
-                        border: 1px solid #8C6D1F;
-                        padding: 12px 14px;
-                        text-align: center;
-                        vertical-align: middle;
-                        font-size: 11pt;
-                    }
-                    td {
-                        border: 1px solid #CFC6BC;
-                        padding: 10px 14px;
-                        vertical-align: top;
-                        mso-number-format: "\\@";
-                    }
-                    .total-footer td {
-                        background-color: #FFF3CD;
-                        font-weight: bold;
-                        border: 1px solid #8C6D1F;
-                        padding: 11px 14px;
-                        font-size: 11pt;
-                    }
-                </style>
-            </head>
-            <body>
-                <table>
-                    <tr>
-                        <td colspan="13" style="border: none; padding: 4px 0;" class="title-box">
-                            LAPORAN PENJUALAN - ${appSettings.storeName.toUpperCase()}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="13" style="border: none; padding: 0 0 12px 0;" class="sub-box">
-                            ${appSettings.address} | Telp: ${appSettings.phone} &bull; Dicetak pada: ${printDate} WIB
-                        </td>
-                    </tr>
-                    <thead>
-                        <tr>
-                            <th style="width: 45px;">No</th>
-                            <th style="width: 100px;">ID Transaksi</th>
-                            <th style="width: 145px;">Tanggal &amp; Waktu</th>
-                            <th style="width: 165px;">Nama Pelanggan</th>
-                            <th style="width: 125px;">Tipe Pelanggan</th>
-                            <th style="width: 310px;">Detail Pesanan (Menu &amp; Jumlah)</th>
-                            <th style="width: 95px;">Total Qty</th>
-                            <th style="width: 95px;">Metode</th>
-                            <th style="width: 120px;">Subtotal</th>
-                            <th style="width: 100px;">Pajak</th>
-                            <th style="width: 130px;">Total Bayar</th>
-                            <th style="width: 130px;">Uang Diterima</th>
-                            <th style="width: 120px;">Kembalian</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rowsHTML}
-                    </tbody>
-                    <tfoot>
-                        <tr class="total-footer">
-                            <td colspan="6" style="text-align: right;">GRAND TOTAL (${transactions.length} Transaksi)</td>
-                            <td style="text-align: center;">${totalItemTerjual} pcs</td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
-                            <td style="text-align: right;">${formatRpClean(totalOmsetKeseluruhan)}</td>
-                            <td colspan="2"></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </body>
-            </html>
-        `;
-
-        const blob = new Blob(["\uFEFF" + excelTemplate], {
-            type: "application/vnd.ms-excel;charset=utf-8;"
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `Laporan_SweetMemories_${new Date().toISOString().slice(0, 10)}.xls`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    });
-};
-
-document.addEventListener("DOMContentLoaded", () => {
-    renderSidebarCopyright();
-    initEventListeners();
-    loadSettings();
-    initRealtimeCloudSync();
-    startRealtimeClock();
-    renderMenu();
-    updateAdminUI();
-});
+.btn-qris-reset {
+    background: var(--danger-subtle);
+    color: var(--danger-color);
+    border: 1px solid rgba(192, 74, 74, 0.3);
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+}
