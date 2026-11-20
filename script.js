@@ -72,9 +72,9 @@ const menuItems = [
         customKey: "donat"
     },
     { id: 2, name: "Bomboloni", price: 4000, category: "makanan", img: "pict/img/Bomboloni.png" },
-    { id: 3, name: "Soda Gembira", price: 12000, category: "minuman", img: "pict/img/sodagembira.jpg" },
+    { id: 3, name: "Soda Gembira", price: 10000, category: "minuman", img: "pict/img/sodagembira.jpg" },
     { id: 4, name: "Mango Sticky Rice", price: 15000, category: "makanan", img: "pict/img/mangostr.jpg" },
-    { id: 5, name: "Kue Sus", price: 3500, category: "makanan", img: "pict/img/kuesus.png" },
+    { id: 5, name: "Kue Sus", price: 4000, category: "makanan", img: "pict/img/kuesus.png" },
     { 
         id: 6, 
         name: "Manik - Manik", 
@@ -95,22 +95,15 @@ const customProductVariants = {
         fixedPrice: 15000,
         options: ["Keychain", "Gelang"]
     },
-    donat: {
+    donat: {    
         modalTitle: "Pilih Rasa Donat Jadoel",
         icon: "fa-cookie-bite",
         categoryLabel: "Kategori Topping",
         optionLabel: "Varian Rasa & Harga",
         categories: {
             "Klasik": [
-                { name: "Gula Halus (Salju)", price: 3500 },
-                { name: "Cokelat Meses Klasik", price: 4000 },
-                { name: "Keju Parut", price: 4500 }
+                { name: "Cokelat Ceres", price: 3500 },
             ],
-            "Glaze & Spesial": [
-                { name: "Cokelat Lumer", price: 4500 },
-                { name: "Stroberi Glaze", price: 4500 },
-                { name: "Matcha / Tiramisu", price: 5000 }
-            ]
         }
     }
 };
