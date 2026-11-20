@@ -460,7 +460,7 @@ const renderSidebarCopyright = () => {
     footer.id = "sidebarCopyright";
     footer.innerHTML = `
         <strong>&copy; Copyright 2026 by Raihan & Kelompok 3 05SISP002.</strong>
-        <small>Teknologi &amp; Media Promosi</small>
+        <small>Teknologi &amp; Media Digital</small>
     `;
     sidebar.appendChild(footer);
 };
